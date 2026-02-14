@@ -1,39 +1,88 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-final GoRouter appRouter = GoRouter(
-  initialLocation: '/login',
-  routes: <RouteBase>[
-    GoRoute(
-      path: '/login',
-      builder: (BuildContext context, GoRouterState state) {
-        return const _PlaceholderScreen(title: 'Login');
-      },
-    ),
-    GoRoute(
-      path: '/home',
-      builder: (BuildContext context, GoRouterState state) {
-        return const _PlaceholderScreen(title: 'Home');
-      },
-    ),
-  ],
-);
+import '../features/auth/auth_provider.dart';
+import '../features/auth/login_screen.dart';
 
-class _PlaceholderScreen extends StatelessWidget {
-  const _PlaceholderScreen({required this.title});
+final appRouterProvider = Provider<GoRouter>((Ref ref) {
+  final authRepository = ref.watch(authRepositoryProvider);
 
-  final String title;
+  return GoRouter(
+    initialLocation: '/login',
+    refreshListenable: GoRouterRefreshStream(authRepository.authStateChanges),
+    redirect: (BuildContext context, GoRouterState state) {
+      final bool isAuthenticated = authRepository.currentUser != null;
+      final bool isOnLogin = state.matchedLocation == '/login';
+
+      if (!isAuthenticated && !isOnLogin) {
+        return '/login';
+      }
+
+      if (isAuthenticated && isOnLogin) {
+        return '/home';
+      }
+
+      return null;
+    },
+    routes: <RouteBase>[
+      GoRoute(
+        path: '/login',
+        builder: (BuildContext context, GoRouterState state) {
+          return const LoginScreen();
+        },
+      ),
+      GoRoute(
+        path: '/home',
+        builder: (BuildContext context, GoRouterState state) {
+          return const HomeScreen();
+        },
+      ),
+    ],
+  );
+});
+
+class HomeScreen extends ConsumerWidget {
+  const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bool isLoading = ref.watch(authControllerProvider).isLoading;
+
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Text(
-          '$title screen',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
+      appBar: AppBar(
+        title: const Text('Home'),
+        actions: <Widget>[
+          IconButton(
+            onPressed: isLoading
+                ? null
+                : () => ref.read(authControllerProvider.notifier).signOut(),
+            tooltip: 'Cerrar sesion',
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+      ),
+      body: const Center(
+        child: Text('Sesion activa'),
       ),
     );
+  }
+}
+
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    _subscription = stream.asBroadcastStream().listen((dynamic _) {
+      notifyListeners();
+    });
+  }
+
+  late final StreamSubscription<dynamic> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
   }
 }

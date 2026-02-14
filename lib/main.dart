@@ -19,6 +19,8 @@ class NeuroTrackApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(appRouterProvider);
+
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'NeuroTrack',
@@ -26,7 +28,7 @@ class NeuroTrackApp extends ConsumerWidget {
         useMaterial3: true,
         colorSchemeSeed: Colors.teal,
       ),
-      routerConfig: appRouter,
+      routerConfig: router,
     );
   }
 }
