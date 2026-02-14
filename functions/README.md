@@ -25,3 +25,17 @@ Plantilla TypeScript para validar documentos `patients` y `seizures` en backend.
 
 Estos triggers corrigen/eliminan datos invalidos despues de la escritura.
 La autorizacion y ownership deben seguir protegidos con Firestore Rules.
+
+## Agregados de investigacion
+
+Se incluyen triggers para estadisticas anonimas:
+
+- `onSeizureCreate`, `onSeizureUpdate`, `onSeizureDelete` sobre `seizures/{seizureId}`
+- `onPatientResearchProfileUpdate` sobre `patients/{patientId}` cuando cambia `geneSummary` o `consentForResearch`
+
+Salida:
+
+- `aggregates/global_stats`
+- `aggregates/by_gene/items/{geneSymbol}` (equivalente practico en Firestore para el agrupado por gen)
+
+No se persisten `patientId` ni `userId` en los documentos agregados.
