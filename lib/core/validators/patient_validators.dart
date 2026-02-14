@@ -34,6 +34,14 @@ class PatientValidators {
     return normalized;
   }
 
+  static String normalizeAlias(String value) {
+    final normalized = value.trim();
+    if (normalized.length > 80) {
+      throw ValidationException('alias supera el maximo permitido.');
+    }
+    return normalized;
+  }
+
   static List<String> normalizeGeneSummary(List<String> genes) {
     if (genes.length > 100) {
       throw ValidationException('geneSummary supera el maximo permitido.');

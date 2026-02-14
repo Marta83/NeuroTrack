@@ -76,12 +76,13 @@ function validatePatientData(data: Plain, patientId: string): string[] {
     "createdAt",
     "updatedAt",
   ];
+  const allowed = [...required, "alias"];
 
   if (!hasAllKeys(data, required)) {
     return ["Faltan campos en patients."];
   }
 
-  if (!hasOnlyKeys(data, required)) {
+  if (!hasOnlyKeys(data, allowed)) {
     return ["Existen campos no permitidos en patients."];
   }
 
@@ -93,6 +94,12 @@ function validatePatientData(data: Plain, patientId: string): string[] {
 
   if (!isString(data.ownerUserId) || data.ownerUserId.length === 0) {
     errors.push("ownerUserId invalido.");
+  }
+
+  if (data.alias != null) {
+    if (!isString(data.alias) || data.alias.length > 80) {
+      errors.push("alias invalido.");
+    }
   }
 
   if (!isInt(data.birthYear) || data.birthYear < 1900 || data.birthYear > 2100) {

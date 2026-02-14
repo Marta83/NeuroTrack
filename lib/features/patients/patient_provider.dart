@@ -22,6 +22,15 @@ final patientsByOwnerProvider =
   },
 );
 
+final patientByIdProvider =
+    StreamProvider.family.autoDispose<PatientModel, ({String userId, String patientId})>(
+  (Ref ref, ({String userId, String patientId}) args) {
+    return ref
+        .watch(patientRepositoryProvider)
+        .streamPatientById(userId: args.userId, patientId: args.patientId);
+  },
+);
+
 final patientControllerProvider =
     AsyncNotifierProvider<PatientController, void>(PatientController.new);
 

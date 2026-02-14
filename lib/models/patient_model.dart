@@ -11,6 +11,7 @@ class PatientModel {
   PatientModel({
     required this.id,
     required this.ownerUserId,
+    required this.alias,
     required this.birthYear,
     required this.sex,
     required this.country,
@@ -24,6 +25,7 @@ class PatientModel {
 
   final String id;
   final String ownerUserId;
+  final String alias;
   final int birthYear;
   final String sex;
   final String country;
@@ -39,6 +41,7 @@ class PatientModel {
   /// Crea un paciente con `patientId` aleatorio UUID v4.
   factory PatientModel.create({
     required String ownerUserId,
+    String alias = '',
     required int birthYear,
     required String sex,
     required String country,
@@ -56,10 +59,12 @@ class PatientModel {
     final normalizedGenes = PatientValidators.normalizeGeneSummary(geneSummary);
     final normalizedConsentVersion =
         PatientValidators.validateConsentVersion(consentVersion);
+    final normalizedAlias = PatientValidators.normalizeAlias(alias);
 
     return PatientModel(
       id: _uuid.v4(),
       ownerUserId: ownerUserId,
+      alias: normalizedAlias,
       birthYear: birthYear,
       sex: normalizedSex,
       country: normalizedCountry,
@@ -73,6 +78,7 @@ class PatientModel {
   }
 
   factory PatientModel.fromMap(Map<String, dynamic> map) {
+    final alias = (map['alias'] as String?) ?? '';
     final birthYear = (map['birthYear'] as num?)?.toInt() ?? 0;
     final sex = (map['sex'] as String?) ?? '';
     final country = (map['country'] as String?) ?? '';
@@ -86,10 +92,12 @@ class PatientModel {
     final normalizedGenes = PatientValidators.normalizeGeneSummary(geneSummary);
     final normalizedConsentVersion =
         PatientValidators.validateConsentVersion(consentVersion);
+    final normalizedAlias = PatientValidators.normalizeAlias(alias);
 
     return PatientModel(
       id: (map['id'] as String?) ?? '',
       ownerUserId: (map['ownerUserId'] as String?) ?? '',
+      alias: normalizedAlias,
       birthYear: birthYear,
       sex: normalizedSex,
       country: normalizedCountry,
@@ -106,6 +114,7 @@ class PatientModel {
     return <String, dynamic>{
       'id': id,
       'ownerUserId': ownerUserId,
+      'alias': alias,
       'birthYear': birthYear,
       'sex': sex,
       'country': country,
@@ -121,6 +130,7 @@ class PatientModel {
   PatientModel copyWith({
     String? id,
     String? ownerUserId,
+    String? alias,
     int? birthYear,
     String? sex,
     String? country,
@@ -134,6 +144,7 @@ class PatientModel {
     return PatientModel(
       id: id ?? this.id,
       ownerUserId: ownerUserId ?? this.ownerUserId,
+      alias: alias ?? this.alias,
       birthYear: birthYear ?? this.birthYear,
       sex: sex ?? this.sex,
       country: country ?? this.country,

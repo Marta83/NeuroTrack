@@ -6,6 +6,10 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/auth_provider.dart';
 import '../features/auth/login_screen.dart';
+import '../features/patients/home_screen.dart';
+import '../features/patients/patient_form_screen.dart';
+import '../features/patients/patient_screen.dart';
+import '../features/seizures/seizure_form_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((Ref ref) {
   final authRepository = ref.watch(authRepositoryProvider);
@@ -40,36 +44,29 @@ final appRouterProvider = Provider<GoRouter>((Ref ref) {
           return const HomeScreen();
         },
       ),
+      GoRoute(
+        path: '/patients/new',
+        builder: (BuildContext context, GoRouterState state) {
+          return const PatientFormScreen();
+        },
+      ),
+      GoRoute(
+        path: '/patients/:patientId',
+        builder: (BuildContext context, GoRouterState state) {
+          final patientId = state.pathParameters['patientId'] ?? '';
+          return PatientScreen(patientId: patientId);
+        },
+      ),
+      GoRoute(
+        path: '/patients/:patientId/seizures/new',
+        builder: (BuildContext context, GoRouterState state) {
+          final patientId = state.pathParameters['patientId'] ?? '';
+          return SeizureFormScreen(patientId: patientId);
+        },
+      ),
     ],
   );
 });
-
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bool isLoading = ref.watch(authControllerProvider).isLoading;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Home'),
-        actions: <Widget>[
-          IconButton(
-            onPressed: isLoading
-                ? null
-                : () => ref.read(authControllerProvider.notifier).signOut(),
-            tooltip: 'Cerrar sesion',
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
-      body: const Center(
-        child: Text('Sesion activa'),
-      ),
-    );
-  }
-}
 
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {

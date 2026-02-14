@@ -70,4 +70,36 @@ class PatientService {
       throw const PatientServiceException('No se pudieron obtener los pacientes.');
     }
   }
+
+  Stream<PatientModel> streamPatientById({
+    required String userId,
+    required String patientId,
+  }) {
+    try {
+      return _patientsCollection.doc(patientId).snapshots().map(
+        (DocumentSnapshot<Map<String, dynamic>> snapshot) {
+          if (!snapshot.exists || snapshot.data() == null) {
+            throw const PatientServiceException('El paciente no existe.');
+          }
+
+          final data = snapshot.data()!;
+          if ((data['ownerUserId'] as String?) != userId) {
+            throw const PatientServiceException(
+              'No tienes permisos para este paciente.',
+            );
+          }
+          if ((data['id'] as String?) == null || (data['id'] as String).isEmpty) {
+            data['id'] = snapshot.id;
+          }
+          return PatientModel.fromMap(data);
+        },
+      );
+    } on FirebaseException catch (error) {
+      throw PatientServiceException(
+        error.message ?? 'No se pudo obtener el paciente.',
+      );
+    } catch (_) {
+      throw const PatientServiceException('No se pudo obtener el paciente.');
+    }
+  }
 }

@@ -44,4 +44,17 @@ class PatientRepository {
       throw const PatientRepositoryException('No se pudieron obtener los pacientes.');
     }
   }
+
+  Stream<PatientModel> streamPatientById({
+    required String userId,
+    required String patientId,
+  }) {
+    try {
+      return _service.streamPatientById(userId: userId, patientId: patientId);
+    } on PatientServiceException catch (error) {
+      throw PatientRepositoryException(error.message);
+    } catch (_) {
+      throw const PatientRepositoryException('No se pudo obtener el paciente.');
+    }
+  }
 }
