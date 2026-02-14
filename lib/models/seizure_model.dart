@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/validators/seizure_validators.dart';
+
 /// Documento Firestore: seizures/{seizureId}
 ///
 /// Este modelo solo referencia al paciente mediante `patientId`.
@@ -45,30 +47,52 @@ class SeizureModel {
     DateTime? updatedAt,
   }) {
     final now = DateTime.now();
+    final normalizedType = SeizureValidators.validateType(type);
+    final normalizedIntensity = SeizureValidators.validateIntensity(intensity);
+    final normalizedDuration =
+        SeizureValidators.validateDurationSeconds(durationSeconds);
+    final normalizedMedication =
+        SeizureValidators.normalizeMedicationUsed(medicationUsed);
+    final normalizedNotes = SeizureValidators.normalizeNotes(notes);
+
     return SeizureModel(
       id: _uuid.v4(),
       patientId: patientId,
       dateTime: dateTime,
-      durationSeconds: durationSeconds,
-      type: type,
-      intensity: intensity,
-      medicationUsed: medicationUsed,
-      notes: notes,
+      durationSeconds: normalizedDuration,
+      type: normalizedType,
+      intensity: normalizedIntensity,
+      medicationUsed: normalizedMedication,
+      notes: normalizedNotes,
       createdAt: createdAt ?? now,
       updatedAt: updatedAt ?? now,
     );
   }
 
   factory SeizureModel.fromMap(Map<String, dynamic> map) {
+    final durationSeconds = (map['durationSeconds'] as num?)?.toInt() ?? 0;
+    final type = (map['type'] as String?) ?? '';
+    final intensity = (map['intensity'] as num?)?.toInt() ?? 1;
+    final medicationUsed = (map['medicationUsed'] as String?) ?? '';
+    final notes = (map['notes'] as String?) ?? '';
+
+    final normalizedType = SeizureValidators.validateType(type);
+    final normalizedIntensity = SeizureValidators.validateIntensity(intensity);
+    final normalizedDuration =
+        SeizureValidators.validateDurationSeconds(durationSeconds);
+    final normalizedMedication =
+        SeizureValidators.normalizeMedicationUsed(medicationUsed);
+    final normalizedNotes = SeizureValidators.normalizeNotes(notes);
+
     return SeizureModel(
       id: (map['id'] as String?) ?? '',
       patientId: (map['patientId'] as String?) ?? '',
       dateTime: _dateTimeFromAny(map['dateTime']),
-      durationSeconds: (map['durationSeconds'] as num?)?.toInt() ?? 0,
-      type: (map['type'] as String?) ?? '',
-      intensity: (map['intensity'] as num?)?.toInt() ?? 1,
-      medicationUsed: (map['medicationUsed'] as String?) ?? '',
-      notes: (map['notes'] as String?) ?? '',
+      durationSeconds: normalizedDuration,
+      type: normalizedType,
+      intensity: normalizedIntensity,
+      medicationUsed: normalizedMedication,
+      notes: normalizedNotes,
       createdAt: _dateTimeFromAny(map['createdAt']),
       updatedAt: _dateTimeFromAny(map['updatedAt']),
     );

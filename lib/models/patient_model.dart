@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/validators/patient_validators.dart';
+
 /// Documento Firestore: patients/{patientId}
 ///
 /// Este modelo es anonimo por diseno: no contiene nombre, email u otros datos
@@ -48,32 +50,53 @@ class PatientModel {
     DateTime? updatedAt,
   }) {
     final now = DateTime.now();
+    PatientValidators.validateBirthYear(birthYear);
+    final normalizedSex = PatientValidators.validateSex(sex);
+    final normalizedCountry = PatientValidators.validateCountry(country);
+    final normalizedGenes = PatientValidators.normalizeGeneSummary(geneSummary);
+    final normalizedConsentVersion =
+        PatientValidators.validateConsentVersion(consentVersion);
+
     return PatientModel(
       id: _uuid.v4(),
       ownerUserId: ownerUserId,
       birthYear: birthYear,
-      sex: sex,
-      country: country,
-      geneSummary: List<String>.from(geneSummary),
+      sex: normalizedSex,
+      country: normalizedCountry,
+      geneSummary: normalizedGenes,
       consentForResearch: consentForResearch,
       consentAcceptedAt: consentAcceptedAt,
-      consentVersion: consentVersion,
+      consentVersion: normalizedConsentVersion,
       createdAt: createdAt ?? now,
       updatedAt: updatedAt ?? now,
     );
   }
 
   factory PatientModel.fromMap(Map<String, dynamic> map) {
+    final birthYear = (map['birthYear'] as num?)?.toInt() ?? 0;
+    final sex = (map['sex'] as String?) ?? '';
+    final country = (map['country'] as String?) ?? '';
+    final geneSummary =
+        List<String>.from(map['geneSummary'] as List<dynamic>? ?? const <String>[]);
+    final consentVersion = (map['consentVersion'] as String?) ?? '';
+
+    PatientValidators.validateBirthYear(birthYear);
+    final normalizedSex = PatientValidators.validateSex(sex);
+    final normalizedCountry = PatientValidators.validateCountry(country);
+    final normalizedGenes = PatientValidators.normalizeGeneSummary(geneSummary);
+    final normalizedConsentVersion =
+        PatientValidators.validateConsentVersion(consentVersion);
+
     return PatientModel(
       id: (map['id'] as String?) ?? '',
       ownerUserId: (map['ownerUserId'] as String?) ?? '',
-      birthYear: (map['birthYear'] as num?)?.toInt() ?? 0,
-      sex: (map['sex'] as String?) ?? '',
-      country: (map['country'] as String?) ?? '',
-      geneSummary: List<String>.from(map['geneSummary'] as List<dynamic>? ?? const <String>[]),
+      birthYear: birthYear,
+      sex: normalizedSex,
+      country: normalizedCountry,
+      geneSummary: normalizedGenes,
       consentForResearch: (map['consentForResearch'] as bool?) ?? false,
       consentAcceptedAt: _dateTimeFromAny(map['consentAcceptedAt']),
-      consentVersion: (map['consentVersion'] as String?) ?? '',
+      consentVersion: normalizedConsentVersion,
       createdAt: _dateTimeFromAny(map['createdAt']),
       updatedAt: _dateTimeFromAny(map['updatedAt']),
     );
