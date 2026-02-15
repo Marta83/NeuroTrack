@@ -92,7 +92,7 @@ class _SeizureFormScreenState extends ConsumerState<SeizureFormScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _selectedType,
+                initialValue: _selectedType,
                 decoration: const InputDecoration(labelText: 'Tipo'),
                 items: _typeOptions
                     .map(

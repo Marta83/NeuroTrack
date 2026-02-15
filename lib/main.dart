@@ -9,29 +9,19 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // Evita el error:
-    // "A Firebase App named '[DEFAULT]' already exists"
-    final bool defaultAppExists =
-        Firebase.apps.any((FirebaseApp app) => app.name == '[DEFAULT]');
-
-    if (!defaultAppExists) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      debugPrint('Firebase inicializado correctamente.');
-    } else {
-      debugPrint('Firebase ya estaba inicializado.');
-    }
-  } catch (e, st) {
-    debugPrint('Error al inicializar Firebase: $e');
-    debugPrint('$st');
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (error, stackTrace) {
+    debugPrint('Error al inicializar Firebase: $error');
+    debugPrint('Stack trace: $stackTrace');
   }
 
-  runApp(const ProviderScope(child: NeuroTrackApp()));
+  runApp(const ProviderScope(child: MyApp()));
 }
 
-class NeuroTrackApp extends ConsumerWidget {
-  const NeuroTrackApp({super.key});
+class MyApp extends ConsumerWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
