@@ -71,17 +71,17 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
               TextFormField(
                 controller: _birthYearController,
                 decoration: const InputDecoration(
-                  labelText: 'Ano de nacimiento',
+                  labelText: 'Año de nacimiento',
                 ),
                 keyboardType: TextInputType.number,
                 validator: (String? value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Ingresa el ano de nacimiento.';
+                    return 'Ingresa el año de nacimiento.';
                   }
                   final year = int.tryParse(value.trim());
                   final currentYear = DateTime.now().year;
                   if (year == null || year < 1900 || year > currentYear) {
-                    return 'Ano invalido.';
+                    return 'Año invalido.';
                   }
                   return null;
                 },

@@ -136,7 +136,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) {
         return;
       }
-      final String message = e.message ?? 'No se pudo crear la cuenta.';
+      final String message =
+          '[${e.code}] ${e.message ?? 'No se pudo crear la cuenta.'}';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    } on FirebaseException catch (e) {
+      print(e.code);
+      print(e.message);
+
+      if (!mounted) {
+        return;
+      }
+      final String message = '[${e.code}] ${e.message ?? 'Error de Firebase.'}';
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(message)));

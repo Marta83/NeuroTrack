@@ -59,8 +59,12 @@ class AuthRepository {
         return 'Demasiados intentos. Espera unos minutos e intenta de nuevo.';
       case 'network-request-failed':
         return 'Sin conexion. Verifica tu internet.';
+      case 'configuration-not-found':
+        return 'Firebase Auth no esta configurado. En Firebase Console abre Authentication y presiona Get started.';
+      case 'operation-not-allowed':
+        return 'El metodo Email/Password no esta habilitado en Firebase Authentication.';
       default:
-        return 'No fue posible iniciar sesion. Intentalo de nuevo.';
+        return 'No fue posible iniciar sesion. Codigo: ${error.code}.';
     }
   }
 }

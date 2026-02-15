@@ -36,7 +36,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '191881385523',
     projectId: 'neurotrack-bad2f',
     authDomain: 'neurotrack-bad2f.firebaseapp.com',
-    storageBucket: 'neurotrack-bad2f.firebasestorage.app',
+    storageBucket: 'neurotrack-bad2f.appspot.com',
     measurementId: 'G-3SXKVWRF9Q',
   );
 
@@ -45,7 +45,7 @@ class DefaultFirebaseOptions {
     appId: '1:191881385523:android:8234dc690345e24a897546',
     messagingSenderId: '191881385523',
     projectId: 'neurotrack-bad2f',
-    storageBucket: 'neurotrack-bad2f.firebasestorage.app',
+    storageBucket: 'neurotrack-bad2f.appspot.com',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -53,7 +53,7 @@ class DefaultFirebaseOptions {
     appId: '1:191881385523:ios:e8aba840c66d53c3897546',
     messagingSenderId: '191881385523',
     projectId: 'neurotrack-bad2f',
-    storageBucket: 'neurotrack-bad2f.firebasestorage.app',
+    storageBucket: 'neurotrack-bad2f.appspot.com',
     iosBundleId: 'com.example.neurotrack',
   );
 

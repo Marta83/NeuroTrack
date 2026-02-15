@@ -1,1 +1,44 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"neurotrack-bad2f","appId":"1:191881385523:android:8234dc690345e24a897546","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"neurotrack-bad2f","appId":"1:191881385523:ios:e8aba840c66d53c3897546","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"macos":{"default":{"projectId":"neurotrack-bad2f","appId":"1:191881385523:ios:e8aba840c66d53c3897546","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"neurotrack-bad2f","configurations":{"android":"1:191881385523:android:8234dc690345e24a897546","ios":"1:191881385523:ios:e8aba840c66d53c3897546","macos":"1:191881385523:ios:e8aba840c66d53c3897546","web":"1:191881385523:web:de472c2073f41ee2897546"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "neurotrack-bad2f",
+          "appId": "1:191881385523:android:8234dc690345e24a897546",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "neurotrack-bad2f",
+          "appId": "1:191881385523:ios:e8aba840c66d53c3897546",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "neurotrack-bad2f",
+          "appId": "1:191881385523:ios:e8aba840c66d53c3897546",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "neurotrack-bad2f",
+          "configurations": {
+            "android": "1:191881385523:android:8234dc690345e24a897546",
+            "ios": "1:191881385523:ios:e8aba840c66d53c3897546",
+            "macos": "1:191881385523:ios:e8aba840c66d53c3897546",
+            "web": "1:191881385523:web:de472c2073f41ee2897546"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /patients/{patientId} {
+      allow create: if request.auth != null
+        && request.resource.data.ownerUserId == request.auth.uid;
+
+      allow read, update, delete: if request.auth != null
+        && resource.data.ownerUserId == request.auth.uid;
+    }
+
+    match /seizures/{seizureId} {
+      allow create: if request.auth != null
+        && request.resource.data.patientId is string
+        && get(
+          /databases/$(database)/documents/patients/$(request.resource.data.patientId)
+        ).data.ownerUserId == request.auth.uid;
+
+      allow read, update, delete: if request.auth != null
+        && get(
+          /databases/$(database)/documents/patients/$(resource.data.patientId)
+        ).data.ownerUserId == request.auth.uid;
+    }
+  }
+}
