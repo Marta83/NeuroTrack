@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "191881385523",
+    "project_id": "neurotrack-bad2f",
+    "storage_bucket": "neurotrack-bad2f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:191881385523:android:8234dc690345e24a897546",
+        "android_client_info": {
+          "package_name": "com.example.neurotrack"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAsC9yzGnpqSBH7lrGF0DDVkC8uGvmzMs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

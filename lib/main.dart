@@ -7,9 +7,25 @@ import 'routes/app_router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+
+  try {
+    // Evita el error:
+    // "A Firebase App named '[DEFAULT]' already exists"
+    final bool defaultAppExists =
+        Firebase.apps.any((FirebaseApp app) => app.name == '[DEFAULT]');
+
+    if (!defaultAppExists) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      debugPrint('Firebase inicializado correctamente.');
+    } else {
+      debugPrint('Firebase ya estaba inicializado.');
+    }
+  } catch (e, st) {
+    debugPrint('Error al inicializar Firebase: $e');
+    debugPrint('$st');
+  }
 
   runApp(const ProviderScope(child: NeuroTrackApp()));
 }

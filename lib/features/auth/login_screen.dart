@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:neurotrack/screens/register_screen.dart';
 
 import 'auth_provider.dart';
 import 'auth_repository.dart';
@@ -94,6 +95,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             )
                           : const Text('Entrar'),
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: isLoading
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const RegisterScreen(),
+                              ),
+                            );
+                          },
+                    child: const Text('¿No tienes cuenta? Crear cuenta'),
                   ),
                 ],
               ),
