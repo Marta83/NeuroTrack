@@ -31,41 +31,42 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'REPLACE_WITH_WEB_API_KEY',
-    appId: 'REPLACE_WITH_WEB_APP_ID',
-    messagingSenderId: 'REPLACE_WITH_SENDER_ID',
-    projectId: 'REPLACE_WITH_PROJECT_ID',
-    authDomain: 'REPLACE_WITH_AUTH_DOMAIN',
-    storageBucket: 'REPLACE_WITH_STORAGE_BUCKET',
-    measurementId: 'REPLACE_WITH_MEASUREMENT_ID',
+    apiKey: 'AIzaSyCAWqtQ_yzPXn67ksiXQ4jZc_TOWCfVeto',
+    appId: '1:191881385523:web:de472c2073f41ee2897546',
+    messagingSenderId: '191881385523',
+    projectId: 'neurotrack-bad2f',
+    authDomain: 'neurotrack-bad2f.firebaseapp.com',
+    storageBucket: 'neurotrack-bad2f.firebasestorage.app',
+    measurementId: 'G-3SXKVWRF9Q',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'REPLACE_WITH_ANDROID_API_KEY',
-    appId: 'REPLACE_WITH_ANDROID_APP_ID',
-    messagingSenderId: 'REPLACE_WITH_SENDER_ID',
-    projectId: 'REPLACE_WITH_PROJECT_ID',
-    storageBucket: 'REPLACE_WITH_STORAGE_BUCKET',
+    apiKey: 'AIzaSyCAsC9yzGnpqSBH7lrGF0DDVkC8uGvmzMs',
+    appId: '1:191881385523:android:8234dc690345e24a897546',
+    messagingSenderId: '191881385523',
+    projectId: 'neurotrack-bad2f',
+    storageBucket: 'neurotrack-bad2f.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'REPLACE_WITH_IOS_API_KEY',
-    appId: 'REPLACE_WITH_IOS_APP_ID',
-    messagingSenderId: 'REPLACE_WITH_SENDER_ID',
-    projectId: 'REPLACE_WITH_PROJECT_ID',
-    storageBucket: 'REPLACE_WITH_STORAGE_BUCKET',
-    iosBundleId: 'REPLACE_WITH_BUNDLE_ID',
+    apiKey: 'AIzaSyAcq4FbBeWBFqpwaEz8toswf7UwBzp3F-k',
+    appId: '1:191881385523:ios:e8aba840c66d53c3897546',
+    messagingSenderId: '191881385523',
+    projectId: 'neurotrack-bad2f',
+    storageBucket: 'neurotrack-bad2f.firebasestorage.app',
+    iosBundleId: 'com.example.neurotrack',
   );
 
   // macOS usa configuracion web por requerimiento.
-  // Debe apuntar al mismo proyecto Firebase.
+
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'REPLACE_WITH_WEB_API_KEY',
-    appId: 'REPLACE_WITH_WEB_APP_ID',
-    messagingSenderId: 'REPLACE_WITH_SENDER_ID',
-    projectId: 'REPLACE_WITH_PROJECT_ID',
-    authDomain: 'REPLACE_WITH_AUTH_DOMAIN',
-    storageBucket: 'REPLACE_WITH_STORAGE_BUCKET',
-    measurementId: 'REPLACE_WITH_MEASUREMENT_ID',
+    apiKey: 'AIzaSyAcq4FbBeWBFqpwaEz8toswf7UwBzp3F-k',
+    appId: '1:191881385523:ios:e8aba840c66d53c3897546',
+    messagingSenderId: '191881385523',
+    projectId: 'neurotrack-bad2f',
+    storageBucket: 'neurotrack-bad2f.firebasestorage.app',
+    iosBundleId: 'com.example.neurotrack',
   );
+
+  // Debe apuntar al mismo proyecto Firebase.
 }

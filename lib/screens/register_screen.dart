@@ -129,15 +129,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
       Navigator.pop(context);
-    } on FirebaseAuthException catch (error) {
+    } on FirebaseAuthException catch (e) {
+      print(e.code);
+      print(e.message);
+
       if (!mounted) {
         return;
       }
-      final String message = error.message ?? 'No se pudo crear la cuenta.';
+      final String message = e.message ?? 'No se pudo crear la cuenta.';
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(message)));
-    } catch (_) {
+    } catch (e) {
+      print(e);
+
       if (!mounted) {
         return;
       }
