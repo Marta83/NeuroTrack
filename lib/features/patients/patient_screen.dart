@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../models/rescue_medication.dart';
 import '../auth/auth_provider.dart';
 import '../seizures/seizure_provider.dart';
 import 'patient_provider.dart';
@@ -57,10 +58,23 @@ class PatientScreen extends ConsumerWidget {
                       '${seizure.dateTime.year} '
                       '${seizure.dateTime.hour.toString().padLeft(2, '0')}:'
                       '${seizure.dateTime.minute.toString().padLeft(2, '0')}';
+                  final rescueMedication = _formatRescueMedication(
+                    seizure.rescueMedicationCode,
+                    seizure.rescueMedicationOther,
+                  );
+                  final medicationText = rescueMedication == null
+                      ? ''
+                      : '\nMedicación de rescate: $rescueMedication';
+                  final durationText = _formatDuration(
+                    durationSeconds: seizure.durationSeconds,
+                    durationUnknown: seizure.durationUnknown,
+                  );
 
                   return ListTile(
                     title: Text('${seizure.type}  Intensidad ${seizure.intensity}'),
-                    subtitle: Text('Fecha: $dateText\nDuracion: ${seizure.durationSeconds}s'),
+                    subtitle: Text(
+                      'Fecha: $dateText\nDuración: $durationText$medicationText',
+                    ),
                     isThreeLine: true,
                     trailing: IconButton(
                       icon: const Icon(Icons.delete_outline),
@@ -124,5 +138,34 @@ class PatientScreen extends ConsumerWidget {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(errorMessage)));
     }
+  }
+
+  String? _formatRescueMedication(String? code, String? other) {
+    if (code == null || code.trim().isEmpty) {
+      return null;
+    }
+
+    if (code == RescueMedication.otherCode) {
+      final normalizedOther = other?.trim() ?? '';
+      return normalizedOther.isEmpty ? 'Otra / no listado' : normalizedOther;
+    }
+
+    return RescueMedication.fromCode(code)?.labelEs ?? code;
+  }
+
+  String _formatDuration({
+    required int? durationSeconds,
+    required bool durationUnknown,
+  }) {
+    if (durationUnknown) {
+      return 'Desconocida';
+    }
+    if (durationSeconds == null) {
+      return 'Sin dato';
+    }
+    if (durationSeconds % 60 == 0) {
+      return '${durationSeconds ~/ 60} min';
+    }
+    return '$durationSeconds seg';
   }
 }

@@ -16,6 +16,14 @@ class PatientModel {
     required this.sex,
     required this.country,
     required this.geneSummary,
+    this.city,
+    this.referenceHospital,
+    this.epilepsyOnsetAgeMonths,
+    this.seizureFrequencyBaseline,
+    required this.comorbidities,
+    required this.therapies,
+    required this.devices,
+    required this.currentMedications,
     required this.consentForResearch,
     required this.consentAcceptedAt,
     required this.consentVersion,
@@ -30,6 +38,14 @@ class PatientModel {
   final String sex;
   final String country;
   final List<String> geneSummary;
+  final String? city;
+  final String? referenceHospital;
+  final int? epilepsyOnsetAgeMonths;
+  final String? seizureFrequencyBaseline;
+  final List<String> comorbidities;
+  final List<String> therapies;
+  final List<String> devices;
+  final List<Map<String, dynamic>> currentMedications;
   final bool consentForResearch;
   final DateTime consentAcceptedAt;
   final String consentVersion;
@@ -46,6 +62,14 @@ class PatientModel {
     required String sex,
     required String country,
     required List<String> geneSummary,
+    String? city,
+    String? referenceHospital,
+    int? epilepsyOnsetAgeMonths,
+    String? seizureFrequencyBaseline,
+    List<String> comorbidities = const <String>[],
+    List<String> therapies = const <String>[],
+    List<String> devices = const <String>[],
+    List<Map<String, dynamic>> currentMedications = const <Map<String, dynamic>>[],
     required bool consentForResearch,
     required DateTime consentAcceptedAt,
     required String consentVersion,
@@ -57,6 +81,28 @@ class PatientModel {
     final normalizedSex = PatientValidators.validateSex(sex);
     final normalizedCountry = PatientValidators.validateCountry(country);
     final normalizedGenes = PatientValidators.normalizeGeneSummary(geneSummary);
+    final normalizedCity = PatientValidators.normalizeOptionalText(
+      city,
+      maxLength: 120,
+      fieldName: 'city',
+    );
+    final normalizedReferenceHospital = PatientValidators.normalizeOptionalText(
+      referenceHospital,
+      maxLength: 160,
+      fieldName: 'referenceHospital',
+    );
+    final normalizedOnsetMonths =
+        PatientValidators.validateEpilepsyOnsetAgeMonths(epilepsyOnsetAgeMonths);
+    final normalizedFrequency = PatientValidators.validateSeizureFrequencyBaseline(
+      seizureFrequencyBaseline,
+    );
+    final normalizedComorbidities =
+        PatientValidators.normalizeComorbidities(comorbidities);
+    final normalizedTherapies = PatientValidators.normalizeTherapies(therapies);
+    final normalizedDevices = PatientValidators.normalizeDevices(devices);
+    final normalizedMedications = PatientValidators.normalizeCurrentMedications(
+      currentMedications,
+    );
     final normalizedConsentVersion =
         PatientValidators.validateConsentVersion(consentVersion);
     final normalizedAlias = PatientValidators.normalizeAlias(alias);
@@ -69,6 +115,14 @@ class PatientModel {
       sex: normalizedSex,
       country: normalizedCountry,
       geneSummary: normalizedGenes,
+      city: normalizedCity,
+      referenceHospital: normalizedReferenceHospital,
+      epilepsyOnsetAgeMonths: normalizedOnsetMonths,
+      seizureFrequencyBaseline: normalizedFrequency,
+      comorbidities: normalizedComorbidities,
+      therapies: normalizedTherapies,
+      devices: normalizedDevices,
+      currentMedications: normalizedMedications,
       consentForResearch: consentForResearch,
       consentAcceptedAt: consentAcceptedAt,
       consentVersion: normalizedConsentVersion,
@@ -84,12 +138,48 @@ class PatientModel {
     final country = (map['country'] as String?) ?? '';
     final geneSummary =
         List<String>.from(map['geneSummary'] as List<dynamic>? ?? const <String>[]);
+    final city = map['city'] as String?;
+    final referenceHospital = map['referenceHospital'] as String?;
+    final epilepsyOnsetAgeMonths = (map['epilepsyOnsetAgeMonths'] as num?)?.toInt();
+    final seizureFrequencyBaseline = map['seizureFrequencyBaseline'] as String?;
+    final comorbidities = List<String>.from(
+      map['comorbidities'] as List<dynamic>? ?? const <String>[],
+    );
+    final therapies =
+        List<String>.from(map['therapies'] as List<dynamic>? ?? const <String>[]);
+    final devices =
+        List<String>.from(map['devices'] as List<dynamic>? ?? const <String>[]);
+    final currentMedications = List<Map<String, dynamic>>.from(
+      map['currentMedications'] as List<dynamic>? ?? const <Map<String, dynamic>>[],
+    );
     final consentVersion = (map['consentVersion'] as String?) ?? '';
 
     PatientValidators.validateBirthYear(birthYear);
     final normalizedSex = PatientValidators.validateSex(sex);
     final normalizedCountry = PatientValidators.validateCountry(country);
     final normalizedGenes = PatientValidators.normalizeGeneSummary(geneSummary);
+    final normalizedCity = PatientValidators.normalizeOptionalText(
+      city,
+      maxLength: 120,
+      fieldName: 'city',
+    );
+    final normalizedReferenceHospital = PatientValidators.normalizeOptionalText(
+      referenceHospital,
+      maxLength: 160,
+      fieldName: 'referenceHospital',
+    );
+    final normalizedOnsetMonths =
+        PatientValidators.validateEpilepsyOnsetAgeMonths(epilepsyOnsetAgeMonths);
+    final normalizedFrequency = PatientValidators.validateSeizureFrequencyBaseline(
+      seizureFrequencyBaseline,
+    );
+    final normalizedComorbidities =
+        PatientValidators.normalizeComorbidities(comorbidities);
+    final normalizedTherapies = PatientValidators.normalizeTherapies(therapies);
+    final normalizedDevices = PatientValidators.normalizeDevices(devices);
+    final normalizedMedications = PatientValidators.normalizeCurrentMedications(
+      currentMedications,
+    );
     final normalizedConsentVersion =
         PatientValidators.validateConsentVersion(consentVersion);
     final normalizedAlias = PatientValidators.normalizeAlias(alias);
@@ -102,6 +192,14 @@ class PatientModel {
       sex: normalizedSex,
       country: normalizedCountry,
       geneSummary: normalizedGenes,
+      city: normalizedCity,
+      referenceHospital: normalizedReferenceHospital,
+      epilepsyOnsetAgeMonths: normalizedOnsetMonths,
+      seizureFrequencyBaseline: normalizedFrequency,
+      comorbidities: normalizedComorbidities,
+      therapies: normalizedTherapies,
+      devices: normalizedDevices,
+      currentMedications: normalizedMedications,
       consentForResearch: (map['consentForResearch'] as bool?) ?? false,
       consentAcceptedAt: _dateTimeFromAny(map['consentAcceptedAt']),
       consentVersion: normalizedConsentVersion,
@@ -119,6 +217,14 @@ class PatientModel {
       'sex': sex,
       'country': country,
       'geneSummary': geneSummary,
+      'city': city,
+      'referenceHospital': referenceHospital,
+      'epilepsyOnsetAgeMonths': epilepsyOnsetAgeMonths,
+      'seizureFrequencyBaseline': seizureFrequencyBaseline,
+      'comorbidities': comorbidities,
+      'therapies': therapies,
+      'devices': devices,
+      'currentMedications': currentMedications,
       'consentForResearch': consentForResearch,
       'consentAcceptedAt': Timestamp.fromDate(consentAcceptedAt),
       'consentVersion': consentVersion,
@@ -135,6 +241,14 @@ class PatientModel {
     String? sex,
     String? country,
     List<String>? geneSummary,
+    String? city,
+    String? referenceHospital,
+    int? epilepsyOnsetAgeMonths,
+    String? seizureFrequencyBaseline,
+    List<String>? comorbidities,
+    List<String>? therapies,
+    List<String>? devices,
+    List<Map<String, dynamic>>? currentMedications,
     bool? consentForResearch,
     DateTime? consentAcceptedAt,
     String? consentVersion,
@@ -149,6 +263,16 @@ class PatientModel {
       sex: sex ?? this.sex,
       country: country ?? this.country,
       geneSummary: geneSummary ?? this.geneSummary,
+      city: city ?? this.city,
+      referenceHospital: referenceHospital ?? this.referenceHospital,
+      epilepsyOnsetAgeMonths:
+          epilepsyOnsetAgeMonths ?? this.epilepsyOnsetAgeMonths,
+      seizureFrequencyBaseline:
+          seizureFrequencyBaseline ?? this.seizureFrequencyBaseline,
+      comorbidities: comorbidities ?? this.comorbidities,
+      therapies: therapies ?? this.therapies,
+      devices: devices ?? this.devices,
+      currentMedications: currentMedications ?? this.currentMedications,
       consentForResearch: consentForResearch ?? this.consentForResearch,
       consentAcceptedAt: consentAcceptedAt ?? this.consentAcceptedAt,
       consentVersion: consentVersion ?? this.consentVersion,
