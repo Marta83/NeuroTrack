@@ -22,7 +22,33 @@ final seizureRepositoryProvider = Provider<SeizureRepository>(
 final seizuresByPatientProvider =
     StreamProvider.family.autoDispose<List<SeizureModel>, String>(
   (Ref ref, String patientId) {
-    return ref.watch(seizureRepositoryProvider).streamSeizuresByPatient(patientId);
+    return ref
+        .watch(seizureRepositoryProvider)
+        .streamSeizuresByPatient(patientId);
+  },
+);
+
+final seizuresAnalyticsByPatientProvider = StreamProvider.family
+    .autoDispose<List<SeizureModel>, ({String patientId, int daysBack})>(
+  (Ref ref, ({String patientId, int daysBack}) args) {
+    final from = DateTime.now().subtract(Duration(days: args.daysBack));
+    return ref.watch(seizureRepositoryProvider).streamSeizuresByPatientFrom(
+          patientId: args.patientId,
+          from: from,
+        );
+  },
+);
+
+final seizuresByPatientMonthProvider = StreamProvider.family
+    .autoDispose<List<SeizureModel>, ({String patientId, DateTime month})>(
+  (Ref ref, ({String patientId, DateTime month}) args) {
+    final start = DateTime(args.month.year, args.month.month, 1);
+    final end = DateTime(args.month.year, args.month.month + 1, 1);
+    return ref.watch(seizureRepositoryProvider).streamSeizuresByPatientBetween(
+          patientId: args.patientId,
+          startInclusive: start,
+          endExclusive: end,
+        );
   },
 );
 

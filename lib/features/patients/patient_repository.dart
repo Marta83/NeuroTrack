@@ -1,4 +1,5 @@
 import '../../models/patient_model.dart';
+import '../../models/patient_history_entry.dart';
 import 'patient_service.dart';
 
 class PatientRepositoryException implements Exception {
@@ -31,7 +32,29 @@ class PatientRepository {
     } on PatientServiceException catch (error) {
       throw PatientRepositoryException(error.message);
     } catch (_) {
-      throw const PatientRepositoryException('No se pudo actualizar el paciente.');
+      throw const PatientRepositoryException(
+          'No se pudo actualizar el paciente.');
+    }
+  }
+
+  Future<bool> updatePatientWithHistory({
+    required PatientModel oldPatient,
+    required PatientModel updatedPatient,
+    required String changedBy,
+    String? reason,
+  }) async {
+    try {
+      return await _service.updatePatientWithHistory(
+        oldPatient: oldPatient,
+        updatedPatient: updatedPatient,
+        changedBy: changedBy,
+        reason: reason,
+      );
+    } on PatientServiceException catch (error) {
+      throw PatientRepositoryException(error.message);
+    } catch (_) {
+      throw const PatientRepositoryException(
+          'No se pudo actualizar el paciente.');
     }
   }
 
@@ -41,7 +64,8 @@ class PatientRepository {
     } on PatientServiceException catch (error) {
       throw PatientRepositoryException(error.message);
     } catch (_) {
-      throw const PatientRepositoryException('No se pudieron obtener los pacientes.');
+      throw const PatientRepositoryException(
+          'No se pudieron obtener los pacientes.');
     }
   }
 
@@ -55,6 +79,21 @@ class PatientRepository {
       throw PatientRepositoryException(error.message);
     } catch (_) {
       throw const PatientRepositoryException('No se pudo obtener el paciente.');
+    }
+  }
+
+  Stream<List<PatientHistoryEntry>> streamPatientHistory({
+    required String userId,
+    required String patientId,
+  }) {
+    try {
+      return _service.streamPatientHistory(
+          userId: userId, patientId: patientId);
+    } on PatientServiceException catch (error) {
+      throw PatientRepositoryException(error.message);
+    } catch (_) {
+      throw const PatientRepositoryException(
+          'No se pudo obtener la evolución.');
     }
   }
 }

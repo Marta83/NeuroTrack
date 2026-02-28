@@ -43,7 +43,8 @@ class SeizureRepository {
     } on SeizureRepositoryException {
       rethrow;
     } catch (_) {
-      throw const SeizureRepositoryException('No se pudo actualizar la crisis.');
+      throw const SeizureRepositoryException(
+          'No se pudo actualizar la crisis.');
     }
   }
 
@@ -72,7 +73,92 @@ class SeizureRepository {
     } on SeizureRepositoryException {
       rethrow;
     } catch (_) {
-      throw const SeizureRepositoryException('No se pudieron obtener las crisis.');
+      throw const SeizureRepositoryException(
+          'No se pudieron obtener las crisis.');
+    }
+  }
+
+  Stream<List<SeizureModel>> streamSeizuresByPatientFrom({
+    required String patientId,
+    required DateTime from,
+  }) {
+    try {
+      final userId = _requireUserId();
+      return _service.streamSeizuresByPatientFrom(
+        ownerUserId: userId,
+        patientId: patientId,
+        from: from,
+      );
+    } on SeizureServiceException catch (error) {
+      throw SeizureRepositoryException(error.message);
+    } on SeizureRepositoryException {
+      rethrow;
+    } catch (_) {
+      throw const SeizureRepositoryException(
+          'No se pudieron obtener las crisis.');
+    }
+  }
+
+  Stream<List<SeizureModel>> streamSeizuresByPatientBetween({
+    required String patientId,
+    required DateTime startInclusive,
+    required DateTime endExclusive,
+  }) {
+    try {
+      final userId = _requireUserId();
+      return _service.streamSeizuresByPatientBetween(
+        ownerUserId: userId,
+        patientId: patientId,
+        startInclusive: startInclusive,
+        endExclusive: endExclusive,
+      );
+    } on SeizureServiceException catch (error) {
+      throw SeizureRepositoryException(error.message);
+    } on SeizureRepositoryException {
+      rethrow;
+    } catch (_) {
+      throw const SeizureRepositoryException(
+          'No se pudieron obtener las crisis.');
+    }
+  }
+
+  Future<void> seedTestSeizuresForPatient(
+    String patientId, {
+    int count = 80,
+  }) async {
+    try {
+      final userId = _requireUserId();
+      await _service.seedTestSeizuresForPatient(
+        patientId,
+        ownerUserId: userId,
+        count: count,
+      );
+    } on SeizureServiceException catch (error) {
+      throw SeizureRepositoryException(error.message);
+    } on SeizureRepositoryException {
+      rethrow;
+    } catch (error) {
+      throw SeizureRepositoryException(
+        'No se pudieron generar crisis de prueba. Detalle: $error',
+      );
+    }
+  }
+
+  Future<int> deleteSeededTestSeizuresForPatient(String patientId) async {
+    try {
+      final userId = _requireUserId();
+      return await _service.deleteSeededTestSeizuresForPatient(
+        patientId,
+        ownerUserId: userId,
+      );
+    } on SeizureServiceException catch (error) {
+      throw SeizureRepositoryException(error.message);
+    } on SeizureRepositoryException {
+      rethrow;
+    } catch (error) {
+      throw SeizureRepositoryException(
+        'No se pudieron eliminar crisis de prueba. Detalle: $error',
+      );
     }
   }
 

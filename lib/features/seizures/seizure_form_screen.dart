@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../core/validators/seizure_validators.dart';
 import '../../models/rescue_medication.dart';
 import '../../models/seizure_model.dart';
 import '../../models/seizure_trigger.dart';
+import '../../ui/soft_ui.dart';
 import 'seizure_context_form_state.dart';
 import 'seizure_provider.dart';
 
@@ -24,16 +26,6 @@ class SeizureFormScreen extends ConsumerStatefulWidget {
 }
 
 class _SeizureFormScreenState extends ConsumerState<SeizureFormScreen> {
-  static const double _maxFormWidth = 760;
-  static const double _cardRadius = 16;
-  static const double _inputRadius = 12;
-  static const double _sectionGap = 20;
-  static const double _fieldGap = 12;
-  static const EdgeInsets _cardPadding = EdgeInsets.symmetric(
-    horizontal: 16,
-    vertical: 16,
-  );
-
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
   final _durationController = TextEditingController();
@@ -66,7 +58,7 @@ class _SeizureFormScreenState extends ConsumerState<SeizureFormScreen> {
     }
 
     _selectedDateTime = initial.dateTime;
-    _selectedType = initial.type;
+    _selectedType = _normalizeTypeForForm(initial.type);
     _intensity = initial.intensity;
     _selectedRescueMedicationCode = initial.rescueMedicationCode;
     if (initial.postictalRecoveryMinutes != null) {
@@ -74,7 +66,12 @@ class _SeizureFormScreenState extends ConsumerState<SeizureFormScreen> {
     }
     _rescueMedicationOtherController.text = initial.rescueMedicationOther ?? '';
     _notesController.text = initial.notes ?? '';
-    ref.read(seizureContextFormProvider.notifier).loadFromSeizure(initial);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      ref.read(seizureContextFormProvider.notifier).loadFromSeizure(initial);
+    });
 
     final durationSeconds = initial.durationSeconds;
     if (durationSeconds != null) {
@@ -101,40 +98,47 @@ class _SeizureFormScreenState extends ConsumerState<SeizureFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isLoading = ref.watch(seizureControllerProvider).isLoading;
+    final isEditing = widget.initialSeizure != null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Registrar episodio')),
+      appBar: AppBar(
+        title: Text(isEditing ? 'Editar episodio' : 'Registrar episodio'),
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _maxFormWidth),
-              child: ListView(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(16),
-                children: <Widget>[
-                  _buildWhenSection(context),
-                  const SizedBox(height: _sectionGap),
-                  _buildHowSection(context),
-                  const SizedBox(height: _sectionGap),
-                  _buildAfterSection(context),
-                  const SizedBox(height: _sectionGap),
-                  _buildAdditionalSection(context),
-                  const SizedBox(height: _sectionGap),
-                  FilledButton.icon(
-                    onPressed: isLoading ? null : _saveSeizure,
-                    icon: isLoading
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save),
-                    label: const Text('Guardar episodio'),
+          child: SoftConstrainedBody(
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final extraRightGutter =
+                    (kIsWeb || constraints.maxWidth >= 600) ? 12.0 : 0.0;
+
+                return Padding(
+                  padding: EdgeInsets.only(right: extraRightGutter),
+                  child: ListView(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    children: <Widget>[
+                      _buildWhenSection(context),
+                      const SizedBox(height: gapSection),
+                      _buildHowSection(context),
+                      const SizedBox(height: gapSection),
+                      FilledButton.icon(
+                        onPressed: isLoading ? null : _saveSeizure,
+                        icon: isLoading
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.save),
+                        label: Text(isEditing ? 'Guardar cambios' : 'Guardar episodio'),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ),
@@ -145,119 +149,418 @@ class _SeizureFormScreenState extends ConsumerState<SeizureFormScreen> {
   Widget _buildWhenSection(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return _sectionCard(
-      context,
-      title: '¿Cuándo ocurrió?',
-      icon: Icons.schedule,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Fecha y hora'),
-            subtitle: Text(
-              _selectedDateTime == null
-                  ? 'Seleccionar fecha/hora'
-                  : _formatDateTime(_selectedDateTime!),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const SoftSectionHeader(icon: Icons.schedule, title: '¿Cuándo ocurrió?'),
+        InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: _pickDateTime,
+          child: InputDecorator(
+            decoration: _softInputDecoration(
+              context,
+              label: 'Fecha y hora',
+              hint: 'Seleccionar fecha y hora',
             ),
-            trailing: const Icon(Icons.calendar_today),
-            onTap: _pickDateTime,
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    _selectedDateTime == null
+                        ? 'Seleccionar fecha/hora'
+                        : _formatDateTime(_selectedDateTime!),
+                  ),
+                ),
+                const Icon(Icons.calendar_today_outlined, size: 18),
+              ],
+            ),
           ),
-          if (_showDateTimeError)
-            Text(
+        ),
+        if (_showDateTimeError)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
               'Selecciona fecha y hora para continuar.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colorScheme.error,
                   ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 
   Widget _buildHowSection(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final contextState = ref.watch(seizureContextFormProvider);
 
-    return _sectionCard(
-      context,
-      title: 'Cómo fue',
-      icon: Icons.timeline,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _buildDurationInput(context),
-          const SizedBox(height: _fieldGap),
-          DropdownButtonFormField<String>(
-            initialValue: _selectedType,
-            decoration: _inputDecoration(context, labelText: 'Tipo'),
-            items: _typeOptions
-                .map(
-                  (option) => DropdownMenuItem<String>(
-                    value: option,
-                    child: Text(option),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: (String? value) {
-              if (value == null) {
-                return;
-              }
+    final selectedCount = contextState.triggers.length +
+        (contextState.injury ? 1 : 0) +
+        (contextState.cyanosis ? 1 : 0) +
+        (contextState.emergencyCall ? 1 : 0) +
+        (contextState.emergencyVisit ? 1 : 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const SoftSectionHeader(icon: Icons.timeline, title: '¿Cómo fue el episodio?'),
+        _buildTimesRow(context),
+        const SizedBox(height: gapField),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedType,
+          decoration: _softInputDecoration(context, label: 'Tipo'),
+          items: _typeOptions
+              .map(
+                (option) => DropdownMenuItem<String>(
+                  value: option,
+                  child: Text(option),
+                ),
+              )
+              .toList(growable: false),
+          onChanged: (String? value) {
+            if (value != null) {
               setState(() => _selectedType = value);
-            },
-          ),
-          const SizedBox(height: _fieldGap),
-          Text(
-            '¿Cómo de fuerte fue?  —  ${SeizureValidators.intensityLabel(_intensity)}',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 8),
-          Slider(
+            }
+          },
+        ),
+        const SizedBox(height: 28),
+        Text(
+          'Severidad',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          '¿Cómo de fuerte fue?',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          SeizureValidators.intensityLabel(_intensity),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 16),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(trackHeight: 2.5),
+          child: Slider(
             value: _intensity.toDouble(),
             min: 1,
             max: 5,
             divisions: 4,
             label: '$_intensity',
+            activeColor: colorScheme.primary.withValues(alpha: 0.85),
+            inactiveColor: colorScheme.onSurface.withValues(alpha: 0.12),
             onChanged: (double value) {
               setState(() => _intensity = value.round().clamp(1, 5));
             },
           ),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  'Leve',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ),
-              Text(
-                'Muy intensa',
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                'Leve',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
               ),
-            ],
+            ),
+            Text(
+              'Muy intensa',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 28),
+        Text(
+          'Ayuda / intervención (opcional)',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String?>(
+          initialValue: _selectedRescueMedicationCode,
+          decoration: _softInputDecoration(
+            context,
+            label: 'Medicación de rescate (opcional)',
+          ),
+          items: <DropdownMenuItem<String?>>[
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text('Ninguna'),
+            ),
+            ...RescueMedication.values.map(
+              (option) => DropdownMenuItem<String?>(
+                value: option.code,
+                child: Text(option.labelEs),
+              ),
+            ),
+          ],
+          onChanged: (String? value) {
+            setState(() {
+              _selectedRescueMedicationCode = value;
+              if (value != RescueMedication.otherCode) {
+                _rescueMedicationOtherController.clear();
+              }
+            });
+          },
+        ),
+        if (_selectedRescueMedicationCode == RescueMedication.otherCode) ...<Widget>[
+          const SizedBox(height: gapField),
+          TextFormField(
+            controller: _rescueMedicationOtherController,
+            decoration: _softInputDecoration(
+              context,
+              label: 'Otra medicación (especificar)',
+            ),
+            maxLength: 500,
+            validator: (String? value) {
+              try {
+                SeizureValidators.normalizeRescueMedicationOther(
+                  rescueMedicationCode: _selectedRescueMedicationCode,
+                  rescueMedicationOther: value,
+                );
+                return null;
+              } catch (_) {
+                return 'Indica la medicación utilizada.';
+              }
+            },
           ),
         ],
-      ),
+        const SizedBox(height: 28),
+        InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            setState(() => _isContextExpanded = !_isContextExpanded);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.16),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Icon(
+                    Icons.tune_rounded,
+                    size: 18,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      if (selectedCount > 0)
+                        RichText(
+                          text: TextSpan(
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onSurface,
+                                ),
+                            children: <TextSpan>[
+                              const TextSpan(text: 'Contexto (opcional) · '),
+                              TextSpan(
+                                text: '$selectedCount seleccionados',
+                                style: TextStyle(color: colorScheme.primary),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Text(
+                          'Contexto (opcional)',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                        ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Completa esta parte solo si aporta información útil.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                AnimatedRotation(
+                  turns: _isContextExpanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  child: Icon(
+                    Icons.expand_more_rounded,
+                    size: 22,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: _isContextExpanded
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+              _contextSubTitle(context, 'Posibles desencadenantes'),
+              const SizedBox(height: gapSmall),
+              SoftChipsWrap(
+                children: SeizureTrigger.values
+                    .map(
+                      (trigger) => _contextChip(
+                        context,
+                        label: trigger.labelEs,
+                        selected: contextState.hasTrigger(trigger.code),
+                        onSelected: (_) {
+                          ref
+                              .read(seizureContextFormProvider.notifier)
+                              .toggleTrigger(trigger.code);
+                        },
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+              const SizedBox(height: gapField),
+              _contextSubTitle(context, 'Consecuencias'),
+              const SizedBox(height: gapSmall),
+              SoftChipsWrap(
+                children: <Widget>[
+                  _contextChip(
+                    context,
+                    label: 'Lesión',
+                    selected: contextState.injury,
+                    onSelected: (bool selected) {
+                      ref.read(seizureContextFormProvider.notifier).setFlag(
+                            injury: selected,
+                          );
+                    },
+                  ),
+                  _contextChip(
+                    context,
+                    label: 'Cianosis',
+                    selected: contextState.cyanosis,
+                    onSelected: (bool selected) {
+                      ref.read(seizureContextFormProvider.notifier).setFlag(
+                            cyanosis: selected,
+                          );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: gapField),
+              _contextSubTitle(context, 'Atención médica'),
+              const SizedBox(height: gapSmall),
+              SoftChipsWrap(
+                children: <Widget>[
+                  _contextChip(
+                    context,
+                    label: 'Llamada a emergencias',
+                    selected: contextState.emergencyCall,
+                    onSelected: (bool selected) {
+                      ref.read(seizureContextFormProvider.notifier).setFlag(
+                            emergencyCall: selected,
+                          );
+                    },
+                  ),
+                  _contextChip(
+                    context,
+                    label: 'Visita a urgencias',
+                    selected: contextState.emergencyVisit,
+                    onSelected: (bool selected) {
+                      ref.read(seizureContextFormProvider.notifier).setFlag(
+                            emergencyVisit: selected,
+                          );
+                    },
+                  ),
+                ],
+              ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _notesController,
+          decoration: _softInputDecoration(
+            context,
+            label: 'Notas (opcional)',
+            hint: 'Añade cualquier detalle que pueda ayudar.',
+            fillOpacity: 0.14,
+          ),
+          maxLines: 4,
+          maxLength: 2000,
+          buildCounter: (
+            BuildContext context, {
+            required int currentLength,
+            required bool isFocused,
+            required int? maxLength,
+          }) {
+            return Text(
+              '$currentLength/${maxLength ?? 2000}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            );
+          },
+        ),
+      ],
     );
   }
 
-  Widget _buildDurationInput(BuildContext context) {
+  Widget _buildTimesRow(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final durationField = TextFormField(
           controller: _durationController,
-          decoration: _inputDecoration(
+          decoration: _softInputDecoration(
             context,
-            labelText: '¿Cuánto duró?',
-            helperText: 'Si no lo sabes, puedes dejarlo en blanco.',
+            label: 'Duración',
+            helper: 'Si no lo sabes, puedes dejarlo en blanco.',
+            suffix: SizedBox(
+              width: 76,
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _durationUnit,
+                  isExpanded: true,
+                  borderRadius: BorderRadius.circular(12),
+                  items: const <DropdownMenuItem<String>>[
+                    DropdownMenuItem<String>(value: 'seg', child: Text('seg')),
+                    DropdownMenuItem<String>(value: 'min', child: Text('min')),
+                  ],
+                  onChanged: (String? value) {
+                    if (value == null) {
+                      return;
+                    }
+                    setState(() => _durationUnit = value);
+                  },
+                ),
+              ),
+            ),
           ),
           keyboardType: TextInputType.number,
-          inputFormatters: <TextInputFormatter>[
-            FilteringTextInputFormatter.digitsOnly,
-          ],
+          inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
           validator: (String? value) {
             final raw = value?.trim() ?? '';
             if (raw.isEmpty) {
@@ -271,320 +574,112 @@ class _SeizureFormScreenState extends ConsumerState<SeizureFormScreen> {
           },
         );
 
-        final segmented = SizedBox(
-          height: 56,
-          child: SegmentedButton<String>(
-            segments: const <ButtonSegment<String>>[
-              ButtonSegment<String>(value: 'seg', label: Text('seg')),
-              ButtonSegment<String>(value: 'min', label: Text('min')),
-            ],
-            selected: <String>{_durationUnit},
-            showSelectedIcon: false,
-            onSelectionChanged: (Set<String> selected) {
-              if (selected.isEmpty) {
-                return;
-              }
-              setState(() {
-                _durationUnit = selected.first;
-              });
-            },
+        final recoveryField = TextFormField(
+          controller: _postictalRecoveryController,
+          decoration: _softInputDecoration(
+            context,
+            label: 'Recuperación (min) (opcional)',
+            hint: 'Tiempo hasta estar como siempre',
           ),
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
+          validator: (String? value) {
+            final parsed = _parsePostictalRecoveryMinutes(value);
+            if (value != null && value.trim().isNotEmpty && parsed == null) {
+              return 'Ingresa minutos válidos (1-1440).';
+            }
+            return null;
+          },
         );
 
-        if (constraints.maxWidth < 430) {
-          return Wrap(
-            spacing: 10,
-            runSpacing: 10,
+        if (constraints.maxWidth >= 600) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              SizedBox(width: constraints.maxWidth, child: durationField),
-              segmented,
+              Expanded(child: durationField),
+              const SizedBox(width: gapField),
+              Expanded(child: recoveryField),
             ],
           );
         }
 
-        return Row(
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Expanded(child: durationField),
-            const SizedBox(width: 12),
-            segmented,
+            durationField,
+            const SizedBox(height: gapField),
+            recoveryField,
           ],
         );
       },
     );
   }
 
-  Widget _buildAfterSection(BuildContext context) {
-    return _sectionCard(
-      context,
-      title: 'Después del episodio',
-      icon: Icons.healing,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          TextFormField(
-            controller: _postictalRecoveryController,
-            decoration: _inputDecoration(
-              context,
-              labelText:
-                  '¿En cuánto tiempo volvió a estar como siempre? (min) (opcional)',
-              hintText: 'Ej: 10',
-            ),
-            keyboardType: TextInputType.number,
-            inputFormatters: <TextInputFormatter>[
-              FilteringTextInputFormatter.digitsOnly,
-            ],
-            validator: (String? value) {
-              final parsed = _parsePostictalRecoveryMinutes(value);
-              if (value != null && value.trim().isNotEmpty && parsed == null) {
-                return 'Ingresa minutos válidos (1-1440).';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: _fieldGap),
-          DropdownButtonFormField<String?>(
-            initialValue: _selectedRescueMedicationCode,
-            decoration: _inputDecoration(
-              context,
-              labelText: 'Medicación de rescate (opcional)',
-            ),
-            items: <DropdownMenuItem<String?>>[
-              const DropdownMenuItem<String?>(
-                value: null,
-                child: Text('Ninguna'),
-              ),
-              ...RescueMedication.values.map(
-                (option) => DropdownMenuItem<String?>(
-                  value: option.code,
-                  child: Text(option.labelEs),
-                ),
-              ),
-            ],
-            onChanged: (String? value) {
-              setState(() {
-                _selectedRescueMedicationCode = value;
-                if (value != RescueMedication.otherCode) {
-                  _rescueMedicationOtherController.clear();
-                }
-              });
-            },
-          ),
-          if (_selectedRescueMedicationCode == RescueMedication.otherCode) ...<Widget>[
-            const SizedBox(height: _fieldGap),
-            TextFormField(
-              controller: _rescueMedicationOtherController,
-              decoration: _inputDecoration(
-                context,
-                labelText: 'Otra medicación (especificar)',
-              ),
-              maxLength: 500,
-              validator: (String? value) {
-                try {
-                  SeizureValidators.normalizeRescueMedicationOther(
-                    rescueMedicationCode: _selectedRescueMedicationCode,
-                    rescueMedicationOther: value,
-                  );
-                  return null;
-                } catch (_) {
-                  return 'Indica la medicación utilizada.';
-                }
-              },
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAdditionalSection(BuildContext context) {
-    final contextState = ref.watch(seizureContextFormProvider);
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final int selectedCount = contextState.triggers.length +
-        (contextState.injury ? 1 : 0) +
-        (contextState.cyanosis ? 1 : 0) +
-        (contextState.emergencyCall ? 1 : 0) +
-        (contextState.emergencyVisit ? 1 : 0);
-
-    final String contextTitle = selectedCount == 0
-        ? '¿Había algo que pudiera haber influido? (opcional)'
-        : '¿Había algo que pudiera haber influido? ($selectedCount seleccionados)';
-
-    return _sectionCard(
-      context,
-      title: 'Información adicional',
-      icon: Icons.info_outline,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: colorScheme.outlineVariant),
-            ),
-            child: ExpansionTile(
-              initiallyExpanded: _isContextExpanded,
-              onExpansionChanged: (bool value) {
-                setState(() => _isContextExpanded = value);
-              },
-              collapsedShape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-              childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              title: Text(contextTitle),
-              children: <Widget>[
-                _contextSubTitle(context, 'Posibles desencadenantes'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: SeizureTrigger.values
-                      .map(
-                        (trigger) => FilterChip(
-                          label: Text(trigger.labelEs),
-                          selected: contextState.hasTrigger(trigger.code),
-                          onSelected: (_) {
-                            ref
-                                .read(seizureContextFormProvider.notifier)
-                                .toggleTrigger(trigger.code);
-                          },
-                        ),
-                      )
-                      .toList(growable: false),
-                ),
-                const SizedBox(height: 16),
-                _contextSubTitle(context, 'Consecuencias'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: <Widget>[
-                    FilterChip(
-                      label: const Text('Lesión'),
-                      selected: contextState.injury,
-                      onSelected: (bool selected) {
-                        ref.read(seizureContextFormProvider.notifier).setFlag(
-                              injury: selected,
-                            );
-                      },
-                    ),
-                    FilterChip(
-                      label: const Text('Cianosis'),
-                      selected: contextState.cyanosis,
-                      onSelected: (bool selected) {
-                        ref.read(seizureContextFormProvider.notifier).setFlag(
-                              cyanosis: selected,
-                            );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _contextSubTitle(context, 'Atención médica'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: <Widget>[
-                    FilterChip(
-                      label: const Text('Llamada a emergencias'),
-                      selected: contextState.emergencyCall,
-                      onSelected: (bool selected) {
-                        ref.read(seizureContextFormProvider.notifier).setFlag(
-                              emergencyCall: selected,
-                            );
-                      },
-                    ),
-                    FilterChip(
-                      label: const Text('Visita a urgencias'),
-                      selected: contextState.emergencyVisit,
-                      onSelected: (bool selected) {
-                        ref.read(seizureContextFormProvider.notifier).setFlag(
-                              emergencyVisit: selected,
-                            );
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: _fieldGap),
-          TextFormField(
-            controller: _notesController,
-            decoration: _inputDecoration(
-              context,
-              labelText: 'Notas (opcional)',
-              hintText: 'Ej: estaba resfriado, había dormido poco…',
-            ),
-            maxLines: 4,
-            maxLength: 2000,
-            buildCounter: (
-              BuildContext context, {
-              required int currentLength,
-              required bool isFocused,
-              required int? maxLength,
-            }) {
-              return Text(
-                '$currentLength/${maxLength ?? 2000}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionCard(
+  InputDecoration _softInputDecoration(
     BuildContext context, {
-    required String title,
-    required IconData icon,
-    required Widget child,
+    required String label,
+    String? helper,
+    String? hint,
+    Widget? suffix,
+    double fillOpacity = 0.18,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(_cardRadius),
+    return InputDecoration(
+      labelText: label,
+      helperText: helper,
+      hintText: hint,
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: fillOpacity),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
       ),
-      child: Padding(
-        padding: _cardPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(
-                  icon,
-                  size: 19,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: _fieldGap),
-            child,
-          ],
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(
+          color: colorScheme.primary.withValues(alpha: 0.35),
+          width: 1.2,
         ),
+      ),
+      helperStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+      hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+      counterStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+    );
+  }
+
+  FilterChip _contextChip(
+    BuildContext context, {
+    required String label,
+    required bool selected,
+    required ValueChanged<bool> onSelected,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: onSelected,
+      selectedColor: colorScheme.primary.withValues(alpha: 0.15),
+      checkmarkColor: colorScheme.primary,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      side: BorderSide(
+        color: selected
+            ? colorScheme.primary.withValues(alpha: 0.4)
+            : colorScheme.outlineVariant.withValues(alpha: 0.6),
       ),
     );
   }
@@ -595,40 +690,6 @@ class _SeizureFormScreenState extends ConsumerState<SeizureFormScreen> {
     return Text(
       text,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-    );
-  }
-
-  InputDecoration _inputDecoration(
-    BuildContext context, {
-    required String labelText,
-    String? helperText,
-    String? hintText,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return InputDecoration(
-      labelText: labelText,
-      helperText: helperText,
-      hintText: hintText,
-      filled: true,
-      isDense: false,
-      fillColor: colorScheme.surface,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(_inputRadius),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(_inputRadius),
-        borderSide: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(_inputRadius),
-      ),
-      helperStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-      counterStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
     );
@@ -687,25 +748,47 @@ class _SeizureFormScreenState extends ConsumerState<SeizureFormScreen> {
     );
     final seizureContext = ref.read(seizureContextFormProvider);
 
-    final seizure = SeizureModel.create(
-      patientId: widget.patientId,
-      dateTime: _selectedDateTime!,
-      durationSeconds: durationSeconds,
-      durationUnknown: false,
-      type: _selectedType,
-      intensity: _intensity,
-      postictalRecoveryMinutes: postictalRecoveryMinutes,
-      triggers: seizureContext.triggers.toList(growable: false),
-      injury: seizureContext.injury,
-      cyanosis: seizureContext.cyanosis,
-      emergencyCall: seizureContext.emergencyCall,
-      emergencyVisit: seizureContext.emergencyVisit,
-      rescueMedicationCode: _selectedRescueMedicationCode,
-      rescueMedicationOther: _rescueMedicationOtherController.text,
-      notes: _notesController.text,
-    );
-
-    await ref.read(seizureControllerProvider.notifier).createSeizure(seizure);
+    if (widget.initialSeizure != null) {
+      final updatedSeizure = widget.initialSeizure!.copyWith(
+        dateTime: _selectedDateTime!,
+        durationSeconds: durationSeconds,
+        durationUnknown: false,
+        type: _selectedType,
+        intensity: _intensity,
+        postictalRecoveryMinutes: postictalRecoveryMinutes,
+        triggers: seizureContext.triggers.toList(growable: false),
+        injury: seizureContext.injury,
+        cyanosis: seizureContext.cyanosis,
+        emergencyCall: seizureContext.emergencyCall,
+        emergencyVisit: seizureContext.emergencyVisit,
+        rescueMedicationCode: _selectedRescueMedicationCode,
+        rescueMedicationOther: _rescueMedicationOtherController.text,
+        notes: _notesController.text,
+        updatedAt: DateTime.now(),
+      );
+      await ref.read(seizureControllerProvider.notifier).updateSeizure(
+            updatedSeizure,
+          );
+    } else {
+      final seizure = SeizureModel.create(
+        patientId: widget.patientId,
+        dateTime: _selectedDateTime!,
+        durationSeconds: durationSeconds,
+        durationUnknown: false,
+        type: _selectedType,
+        intensity: _intensity,
+        postictalRecoveryMinutes: postictalRecoveryMinutes,
+        triggers: seizureContext.triggers.toList(growable: false),
+        injury: seizureContext.injury,
+        cyanosis: seizureContext.cyanosis,
+        emergencyCall: seizureContext.emergencyCall,
+        emergencyVisit: seizureContext.emergencyVisit,
+        rescueMedicationCode: _selectedRescueMedicationCode,
+        rescueMedicationOther: _rescueMedicationOtherController.text,
+        notes: _notesController.text,
+      );
+      await ref.read(seizureControllerProvider.notifier).createSeizure(seizure);
+    }
     final state = ref.read(seizureControllerProvider);
 
     if (!mounted) {
@@ -760,16 +843,42 @@ class _SeizureFormScreenState extends ConsumerState<SeizureFormScreen> {
     return parsed;
   }
 
+  String _normalizeTypeForForm(String raw) {
+    const canonical = <String, String>{
+      'FOCAL': 'Focal',
+      'GENERALIZADA': 'Generalizada',
+      'ABSENCE': 'Ausencia',
+      'AUSENCIA': 'Ausencia',
+      'TONIC_CLONIC': 'Tonico-clonica',
+      'TONICO_CLONICA': 'Tonico-clonica',
+      'TONICO-CLONICA': 'Tonico-clonica',
+      'MYOCLONIC': 'Otro',
+      'OTRO': 'Otro',
+    };
+
+    final normalized = raw.trim();
+    if (normalized.isEmpty) {
+      return _typeOptions.first;
+    }
+
+    final mapped = canonical[normalized.toUpperCase()] ?? normalized;
+    if (_typeOptions.contains(mapped)) {
+      return mapped;
+    }
+    return _typeOptions.first;
+  }
+
   void _scrollToValidationError() {
     double offset = 0;
     if (_selectedDateTime == null) {
       offset = 0;
     } else if (_postictalRecoveryController.text.trim().isNotEmpty &&
-        _parsePostictalRecoveryMinutes(_postictalRecoveryController.text) == null) {
-      offset = 460;
+        _parsePostictalRecoveryMinutes(_postictalRecoveryController.text) ==
+            null) {
+      offset = 340;
     } else if (_selectedRescueMedicationCode == RescueMedication.otherCode &&
         _rescueMedicationOtherController.text.trim().isEmpty) {
-      offset = 560;
+      offset = 520;
     }
 
     _scrollController.animateTo(

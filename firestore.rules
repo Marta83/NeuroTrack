@@ -7,6 +7,12 @@ service cloud.firestore {
 
       allow read, update, delete: if request.auth != null
         && resource.data.ownerUserId == request.auth.uid;
+
+      match /history/{historyId} {
+        allow create, read: if request.auth != null
+          && get(/databases/$(database)/documents/patients/$(patientId)).data.ownerUserId
+              == request.auth.uid;
+      }
     }
 
     match /seizures/{seizureId} {

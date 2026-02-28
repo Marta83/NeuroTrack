@@ -4,22 +4,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/patient_clinical_catalog.dart';
 import '../../models/patient_model.dart';
+import '../../ui/soft_ui.dart';
 import '../auth/auth_provider.dart';
 import 'patient_provider.dart';
 
 class PatientFormScreen extends ConsumerStatefulWidget {
-  const PatientFormScreen({super.key});
+  const PatientFormScreen.newPatient({super.key}) : patientId = null;
+
+  const PatientFormScreen.edit({
+    required this.patientId,
+    super.key,
+  });
+
+  final String? patientId;
+
+  bool get isEdit => patientId != null;
 
   @override
   ConsumerState<PatientFormScreen> createState() => _PatientFormScreenState();
 }
 
 class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
-  static const double _maxFormWidth = 760;
-  static const double _sectionGap = 22;
-  static const double _fieldGap = 12;
-  static const EdgeInsets _cardPadding = EdgeInsets.all(16);
-
   final _formKey = GlobalKey<FormState>();
   final _aliasController = TextEditingController();
   final _birthYearController = TextEditingController();
@@ -37,8 +42,7 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
   final List<_MedicationDraft> _medicationDrafts = <_MedicationDraft>[];
 
   bool _consentForResearch = false;
-  bool _healthSectionExpanded = false;
-  bool _medicationSectionExpanded = false;
+  bool _didHydrateForm = false;
 
   static const List<String> _geneOptions = <String>[
     'STXBP1',
@@ -74,42 +78,83 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userId = ref.watch(authRepositoryProvider).currentUser?.uid;
+    if (userId == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (!widget.isEdit) {
+      return _buildScaffold(context, userId: userId);
+    }
+
+    final patientAsync = ref.watch(
+      patientByIdProvider((userId: userId, patientId: widget.patientId!)),
+    );
+
+    return patientAsync.when(
+      data: (patient) {
+        _hydrateFormIfNeeded(patient);
+        return _buildScaffold(context, userId: userId, currentPatient: patient);
+      },
+      loading: () => Scaffold(
+        appBar: AppBar(title: const Text('Editar paciente')),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => Scaffold(
+        appBar: AppBar(title: const Text('Editar paciente')),
+        body: Center(child: Text('Error: $error')),
+      ),
+    );
+  }
+
+  Scaffold _buildScaffold(
+    BuildContext context, {
+    required String userId,
+    PatientModel? currentPatient,
+  }) {
     final isLoading = ref.watch(patientControllerProvider).isLoading;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nuevo paciente')),
+      appBar: AppBar(
+        title: Text(widget.isEdit ? 'Editar paciente' : 'Nuevo paciente'),
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _maxFormWidth),
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: <Widget>[
-                  _buildBasicSection(context),
-                  const SizedBox(height: _sectionGap),
-                  _buildGeneticsSection(context),
-                  const SizedBox(height: _sectionGap),
-                  _buildHealthSection(context),
-                  const SizedBox(height: _sectionGap),
-                  _buildMedicationSection(context),
-                  const SizedBox(height: _sectionGap),
-                  _buildConsentSection(context),
-                  const SizedBox(height: _sectionGap),
-                  FilledButton.icon(
-                    onPressed: isLoading ? null : _savePatient,
-                    icon: isLoading
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save),
-                    label: const Text('Guardar paciente'),
+          child: SoftConstrainedBody(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              children: <Widget>[
+                _buildBasicSection(context),
+                const SizedBox(height: gapSection),
+                _buildGeneticsSection(context),
+                const SizedBox(height: gapSection),
+                _buildHealthSection(context),
+                const SizedBox(height: gapSection),
+                _buildMedicationSection(context),
+                const SizedBox(height: gapSection),
+                _buildConsentSection(context),
+                const SizedBox(height: gapSection),
+                FilledButton.icon(
+                  onPressed: isLoading
+                      ? null
+                      : () => _savePatient(
+                            userId: userId,
+                            currentPatient: currentPatient,
+                          ),
+                  icon: isLoading
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save),
+                  label: Text(
+                    widget.isEdit ? 'Guardar cambios' : 'Guardar paciente',
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+              ],
             ),
           ),
         ),
@@ -118,530 +163,417 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
   }
 
   Widget _buildBasicSection(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return _sectionCard(
-      context,
-      title: 'Datos básicos',
-      icon: Icons.person_outline,
-      subtitle: 'Estos datos nos ayudan a personalizar el seguimiento.',
-      child: Column(
-        children: <Widget>[
-          TextFormField(
-            controller: _aliasController,
-            decoration: _inputDecoration(
-              context,
-              labelText: 'Alias (opcional)',
-              hintText: 'Ej: Peque valiente',
-            ),
-            maxLength: 80,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const SoftSectionHeader(
+          icon: Icons.person_outline,
+          title: 'Datos básicos',
+          subtitle: 'Estos datos nos ayudan a organizar el seguimiento.',
+        ),
+        TextFormField(
+          controller: _aliasController,
+          decoration: softDecoration(
+            context,
+            label: 'Alias (opcional)',
+            hint: 'Ej: Peque valiente',
           ),
-          const SizedBox(height: _fieldGap),
-          TextFormField(
-            controller: _birthYearController,
-            decoration: _inputDecoration(
-              context,
-              labelText: 'Año de nacimiento',
-            ),
-            keyboardType: TextInputType.number,
-            inputFormatters: <TextInputFormatter>[
-              FilteringTextInputFormatter.digitsOnly,
-            ],
-            validator: (String? value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Ingresa el año de nacimiento.';
-              }
-              final year = int.tryParse(value.trim());
-              final currentYear = DateTime.now().year;
-              if (year == null || year < 1900 || year > currentYear) {
-                return 'Año inválido.';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: _fieldGap),
-          DropdownButtonFormField<String>(
-            initialValue: _selectedSex,
-            decoration: _inputDecoration(context, labelText: 'Sexo'),
-            items: _sexOptions
-                .map(
-                  (option) => DropdownMenuItem<String>(
-                    value: option,
-                    child: Text(option),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: (String? value) {
-              if (value == null) {
-                return;
-              }
+          maxLength: 80,
+        ),
+        const SizedBox(height: gapField),
+        TextFormField(
+          controller: _birthYearController,
+          decoration: softDecoration(context, label: 'Año de nacimiento'),
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly
+          ],
+          validator: (String? value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Ingresa el año de nacimiento.';
+            }
+            final year = int.tryParse(value.trim());
+            final currentYear = DateTime.now().year;
+            if (year == null || year < 1900 || year > currentYear) {
+              return 'Año inválido.';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: gapField),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedSex,
+          decoration: softDecoration(context, label: 'Sexo'),
+          items: _sexOptions
+              .map(
+                (option) => DropdownMenuItem<String>(
+                  value: option,
+                  child: Text(option),
+                ),
+              )
+              .toList(growable: false),
+          onChanged: (String? value) {
+            if (value != null) {
               setState(() => _selectedSex = value);
-            },
-          ),
-          const SizedBox(height: _fieldGap),
-          TextFormField(
-            controller: _countryController,
-            decoration: _inputDecoration(context, labelText: 'País'),
-            validator: (String? value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Ingresa el país.';
-              }
-              return null;
-            },
-          ),
-          if (!_consentForResearch)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'Recuerda aceptar el consentimiento antes de guardar.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.error,
-                    ),
-              ),
-            ),
-        ],
-      ),
+            }
+          },
+        ),
+        const SizedBox(height: gapField),
+        TextFormField(
+          controller: _countryController,
+          decoration: softDecoration(context, label: 'País'),
+          validator: (String? value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Ingresa el país.';
+            }
+            return null;
+          },
+        ),
+      ],
     );
   }
 
   Widget _buildGeneticsSection(BuildContext context) {
-    return _sectionCard(
-      context,
-      title: 'Genética',
-      icon: Icons.science_outlined,
-      subtitle: 'Si conoces el gen afectado, puedes indicarlo aquí.',
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: _geneOptions
-            .map(
-              (gene) => FilterChip(
-                label: Text(gene),
-                selected: _selectedGenes.contains(gene),
-                onSelected: (bool selected) {
-                  setState(() {
-                    if (selected) {
-                      _selectedGenes.add(gene);
-                    } else {
-                      _selectedGenes.remove(gene);
-                    }
-                  });
-                },
-              ),
-            )
-            .toList(growable: false),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const SoftSectionHeader(
+          icon: Icons.science_outlined,
+          title: 'Genética',
+          subtitle: 'Si conoces el gen afectado, puedes indicarlo aquí.',
+        ),
+        SoftChipsWrap(
+          children: _geneOptions
+              .map(
+                (gene) => softFilterChip(
+                  context,
+                  label: gene,
+                  selected: _selectedGenes.contains(gene),
+                  onSelected: (bool selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedGenes.add(gene);
+                      } else {
+                        _selectedGenes.remove(gene);
+                      }
+                    });
+                  },
+                ),
+              )
+              .toList(growable: false),
+        ),
+      ],
     );
   }
 
   Widget _buildHealthSection(BuildContext context) {
-    return _sectionCard(
-      context,
-      title: 'Salud y seguimiento',
-      icon: Icons.favorite_outline,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          color: Theme.of(context).colorScheme.surface,
-          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const SoftSectionHeader(
+          icon: Icons.favorite_outline,
+          title: 'Salud y seguimiento',
         ),
-        child: ExpansionTile(
-          initiallyExpanded: _healthSectionExpanded,
-          onExpansionChanged: (bool expanded) {
-            setState(() => _healthSectionExpanded = expanded);
-          },
-          title: const Text('Información de salud (opcional)'),
-          subtitle: const Text('Puedes completar solo lo que conozcas.'),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-          children: <Widget>[
-            TextFormField(
-              controller: _cityController,
-              decoration: _inputDecoration(context, labelText: 'Ciudad (opcional)'),
-            ),
-            const SizedBox(height: _fieldGap),
-            TextFormField(
-              controller: _referenceHospitalController,
-              decoration: _inputDecoration(
-                context,
-                labelText: 'Hospital de referencia (opcional)',
+        SoftExpansionSection(
+          title: 'Información de salud (opcional)',
+          subtitle: 'Completa solo lo que conozcas.',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              TextFormField(
+                controller: _cityController,
+                decoration: softDecoration(context, label: 'Ciudad (opcional)'),
               ),
-            ),
-            const SizedBox(height: _fieldGap),
-            TextFormField(
-              controller: _epilepsyOnsetAgeMonthsController,
-              decoration: _inputDecoration(
-                context,
-                labelText:
-                    '¿A qué edad empezaron las crisis? (meses) (opcional)',
+              const SizedBox(height: gapField),
+              TextFormField(
+                controller: _referenceHospitalController,
+                decoration: softDecoration(
+                  context,
+                  label: 'Hospital de referencia (opcional)',
+                ),
               ),
-              keyboardType: TextInputType.number,
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.digitsOnly,
-              ],
-              validator: (String? value) {
-                final raw = value?.trim() ?? '';
-                if (raw.isEmpty) {
+              const SizedBox(height: gapField),
+              TextFormField(
+                controller: _epilepsyOnsetAgeMonthsController,
+                decoration: softDecoration(
+                  context,
+                  label: 'Edad inicio de crisis (meses) (opcional)',
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly
+                ],
+                validator: (String? value) {
+                  final raw = value?.trim() ?? '';
+                  if (raw.isEmpty) {
+                    return null;
+                  }
+                  final parsed = int.tryParse(raw);
+                  if (parsed == null || parsed < 0 || parsed > 1200) {
+                    return 'Ingresa un valor entre 0 y 1200 meses.';
+                  }
                   return null;
-                }
-                final parsed = int.tryParse(raw);
-                if (parsed == null || parsed < 0 || parsed > 1200) {
-                  return 'Ingresa un valor entre 0 y 1200 meses.';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: _fieldGap),
-            DropdownButtonFormField<String?>(
-              initialValue: _selectedSeizureFrequencyBaseline,
-              decoration: _inputDecoration(
-                context,
-                labelText:
-                    '¿Con qué frecuencia suele tener crisis? (aproximadamente)',
+                },
               ),
-              items: <DropdownMenuItem<String?>>[
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('Seleccionar (opcional)'),
+              const SizedBox(height: gapField),
+              DropdownButtonFormField<String?>(
+                initialValue: _selectedSeizureFrequencyBaseline,
+                decoration: softDecoration(
+                  context,
+                  label: 'Frecuencia basal de crisis (opcional)',
                 ),
-                ...PatientClinicalCatalog.seizureFrequencyBaselineOptions.map(
-                  (option) => DropdownMenuItem<String?>(
-                    value: option.code,
-                    child: Text(option.labelEs),
+                items: <DropdownMenuItem<String?>>[
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Seleccionar (opcional)'),
                   ),
-                ),
-              ],
-              onChanged: (String? value) {
-                setState(() => _selectedSeizureFrequencyBaseline = value);
-              },
-            ),
-            const SizedBox(height: 16),
-            _subTitle(context, 'Otras dificultades asociadas'),
-            const SizedBox(height: 8),
-            _buildExclusiveChipGroup(
-              selected: _selectedComorbidities,
-              options: PatientClinicalCatalog.comorbidityOptions,
-              onToggle: (String code) {
-                setState(() {
-                  _toggleExclusiveSelection(_selectedComorbidities, code);
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            _subTitle(context, 'Terapias y apoyos'),
-            const SizedBox(height: 8),
-            _buildExclusiveChipGroup(
-              selected: _selectedTherapies,
-              options: PatientClinicalCatalog.therapyOptions,
-              onToggle: (String code) {
-                setState(() {
-                  _toggleExclusiveSelection(_selectedTherapies, code);
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            _subTitle(context, 'Dispositivos y soportes'),
-            const SizedBox(height: 8),
-            _buildExclusiveChipGroup(
-              selected: _selectedDevices,
-              options: PatientClinicalCatalog.deviceOptions,
-              onToggle: (String code) {
-                setState(() {
-                  _toggleExclusiveSelection(_selectedDevices, code);
-                });
-              },
-            ),
-          ],
+                  ...PatientClinicalCatalog.seizureFrequencyBaselineOptions.map(
+                    (option) => DropdownMenuItem<String?>(
+                      value: option.code,
+                      child: Text(option.labelEs),
+                    ),
+                  ),
+                ],
+                onChanged: (String? value) {
+                  setState(() => _selectedSeizureFrequencyBaseline = value);
+                },
+              ),
+              const SizedBox(height: 20),
+              _groupLabel(context, 'Otras dificultades asociadas'),
+              const SizedBox(height: gapSmall),
+              _buildExclusiveChipGroup(
+                context,
+                selected: _selectedComorbidities,
+                options: PatientClinicalCatalog.comorbidityOptions,
+                onToggle: (String code) {
+                  setState(() {
+                    _toggleExclusiveSelection(_selectedComorbidities, code);
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+              _groupLabel(context, 'Terapias y apoyos'),
+              const SizedBox(height: gapSmall),
+              _buildExclusiveChipGroup(
+                context,
+                selected: _selectedTherapies,
+                options: PatientClinicalCatalog.therapyOptions,
+                onToggle: (String code) {
+                  setState(() {
+                    _toggleExclusiveSelection(_selectedTherapies, code);
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+              _groupLabel(context, 'Dispositivos y soportes'),
+              const SizedBox(height: gapSmall),
+              _buildExclusiveChipGroup(
+                context,
+                selected: _selectedDevices,
+                options: PatientClinicalCatalog.deviceOptions,
+                onToggle: (String code) {
+                  setState(() {
+                    _toggleExclusiveSelection(_selectedDevices, code);
+                  });
+                },
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildMedicationSection(BuildContext context) {
-    final int count = _medicationDrafts.length;
+    final count = _medicationDrafts.length;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return _sectionCard(
-      context,
-      title: 'Medicación habitual',
-      icon: Icons.medication_outlined,
-      subtitle: 'Medicaciones que toma actualmente (si las hay).',
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          color: Theme.of(context).colorScheme.surface,
-          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const SoftSectionHeader(
+          icon: Icons.medication_outlined,
+          title: 'Medicación habitual',
         ),
-        child: ExpansionTile(
-          initiallyExpanded: _medicationSectionExpanded,
-          onExpansionChanged: (bool expanded) {
-            setState(() => _medicationSectionExpanded = expanded);
-          },
-          title: Text(
-            count == 0
-                ? 'Medicaciones actuales'
-                : 'Medicaciones actuales ($count añadidas)',
-          ),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-          children: <Widget>[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
+        SoftExpansionSection(
+          title: 'Medicación habitual (opcional)',
+          subtitle: 'Medicaciones que toma actualmente, si las hay.',
+          selectedCount: count,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              FilledButton.tonalIcon(
                 onPressed: () {
                   setState(() {
                     _medicationDrafts.add(_MedicationDraft());
-                    _medicationSectionExpanded = true;
                   });
                 },
                 icon: const Icon(Icons.add),
-                label: const Text('➕ Añadir medicación'),
+                label: const Text('Añadir medicación'),
               ),
-            ),
-            if (_medicationDrafts.isEmpty)
-              Text(
-                'No hay medicaciones añadidas.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ..._medicationDrafts.asMap().entries.map(
-              (entry) {
+              if (_medicationDrafts.isEmpty) ...<Widget>[
+                const SizedBox(height: 12),
+                Text(
+                  'No hay medicaciones añadidas.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+              ..._medicationDrafts.asMap().entries.map((entry) {
                 final index = entry.key;
                 final draft = entry.value;
                 return Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: _buildMedicationCard(context, draft, index),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMedicationCard(
-    BuildContext context,
-    _MedicationDraft draft,
-    int index,
-  ) {
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    'Medicación ${index + 1}',
-                    style: Theme.of(context).textTheme.titleSmall,
+                  padding: const EdgeInsets.only(top: 12),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color:
+                            colorScheme.outlineVariant.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  'Medicación ${index + 1}',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Eliminar medicación',
+                                onPressed: () {
+                                  setState(() {
+                                    draft.dispose();
+                                    _medicationDrafts.removeAt(index);
+                                  });
+                                },
+                                icon: const Icon(Icons.delete_outline),
+                              ),
+                            ],
+                          ),
+                          TextFormField(
+                            controller: draft.nameController,
+                            decoration:
+                                softDecoration(context, label: 'Nombre'),
+                            validator: (String? value) {
+                              final trimmed = value?.trim() ?? '';
+                              if (trimmed.isEmpty) {
+                                return 'Indica el nombre de la medicación.';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: gapField),
+                          TextFormField(
+                            controller: draft.doseController,
+                            decoration: softDecoration(
+                              context,
+                              label: 'Dosis (opcional)',
+                              hint: 'Ej: 5 mg',
+                            ),
+                          ),
+                          const SizedBox(height: gapField),
+                          TextFormField(
+                            controller: draft.scheduleController,
+                            decoration: softDecoration(
+                              context,
+                              label: 'Pauta (opcional)',
+                              hint: 'Ej: 2 veces al día',
+                            ),
+                          ),
+                          const SizedBox(height: gapField),
+                          TextFormField(
+                            controller: draft.notesController,
+                            decoration: softDecoration(
+                              context,
+                              label: 'Notas (opcional)',
+                            ),
+                            maxLines: 2,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Eliminar medicación',
-                  onPressed: () {
-                    setState(() {
-                      draft.dispose();
-                      _medicationDrafts.removeAt(index);
-                    });
-                  },
-                  icon: const Icon(Icons.delete_outline),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: draft.nameController,
-              decoration: _inputDecoration(
-                context,
-                labelText: 'Nombre',
-              ),
-              validator: (String? value) {
-                final trimmed = value?.trim() ?? '';
-                if (trimmed.isEmpty) {
-                  return 'Indica el nombre de la medicación.';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: _fieldGap),
-            TextFormField(
-              controller: draft.doseController,
-              decoration: _inputDecoration(
-                context,
-                labelText: 'Dosis (opcional)',
-                hintText: 'Ej: 5 mg',
-              ),
-            ),
-            const SizedBox(height: _fieldGap),
-            TextFormField(
-              controller: draft.scheduleController,
-              decoration: _inputDecoration(
-                context,
-                labelText: 'Pauta (opcional)',
-                hintText: 'Ej: 2 veces al día',
-              ),
-            ),
-            const SizedBox(height: _fieldGap),
-            TextFormField(
-              controller: draft.notesController,
-              decoration: _inputDecoration(
-                context,
-                labelText: 'Notas (opcional)',
-              ),
-              maxLines: 2,
-            ),
-          ],
+                );
+              }),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildConsentSection(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return _sectionCard(
-      context,
-      title: 'Consentimiento',
-      icon: Icons.verified_user_outlined,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            '¿Autorizas el uso anónimo de estos datos para investigación?',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Solo se usarán datos anonimizados.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 8),
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Acepto el uso anónimo para investigación'),
-            value: _consentForResearch,
-            onChanged: (bool? value) {
-              setState(() => _consentForResearch = value ?? false);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionCard(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    String? subtitle,
-    required Widget child,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: _cardPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(icon, size: 19, color: colorScheme.onSurfaceVariant),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
-                      ),
-                ),
-              ],
-            ),
-            if (subtitle != null) ...<Widget>[
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-              ),
-            ],
-            const SizedBox(height: _fieldGap),
-            child,
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const SoftSectionHeader(
+          icon: Icons.verified_user_outlined,
+          title: 'Consentimiento',
         ),
-      ),
+        Text(
+          '¿Autorizas el uso anónimo de estos datos para investigación?',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Solo se usarán datos anonimizados.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: gapSmall),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Acepto el uso anónimo para investigación'),
+          value: _consentForResearch,
+          onChanged: (bool? value) {
+            setState(() => _consentForResearch = value ?? false);
+          },
+        ),
+      ],
     );
   }
 
-  Widget _subTitle(BuildContext context, String text) {
+  Widget _groupLabel(BuildContext context, String text) {
     return Text(
       text,
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w600,
           ),
     );
   }
 
-  Widget _buildExclusiveChipGroup({
+  Widget _buildExclusiveChipGroup(
+    BuildContext context, {
     required Set<String> selected,
     required List<CatalogOption> options,
     required void Function(String code) onToggle,
   }) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    return SoftChipsWrap(
       children: options
           .map(
-            (option) => FilterChip(
-              label: Text(option.labelEs),
+            (option) => softFilterChip(
+              context,
+              label: option.labelEs,
               selected: selected.contains(option.code),
               onSelected: (_) => onToggle(option.code),
             ),
           )
           .toList(growable: false),
-    );
-  }
-
-  InputDecoration _inputDecoration(
-    BuildContext context, {
-    required String labelText,
-    String? hintText,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return InputDecoration(
-      labelText: labelText,
-      hintText: hintText,
-      filled: true,
-      fillColor: colorScheme.surface,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      counterStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
     );
   }
 
@@ -665,6 +597,175 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
       ..add(code);
   }
 
+  Future<void> _savePatient({
+    required String userId,
+    required PatientModel? currentPatient,
+  }) async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    if (!_consentForResearch) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Debes aceptar el consentimiento para continuar.'),
+          ),
+        );
+      return;
+    }
+
+    final onsetRaw = _epilepsyOnsetAgeMonthsController.text.trim();
+    final int? onsetMonths = onsetRaw.isEmpty ? null : int.tryParse(onsetRaw);
+
+    if (!widget.isEdit) {
+      final patient = PatientModel.create(
+        ownerUserId: userId,
+        alias: _aliasController.text,
+        birthYear: int.parse(_birthYearController.text.trim()),
+        sex: _selectedSex,
+        country: _countryController.text,
+        geneSummary: _sortedCodes(_selectedGenes),
+        city: _nullIfEmpty(_cityController.text),
+        referenceHospital: _nullIfEmpty(_referenceHospitalController.text),
+        epilepsyOnsetAgeMonths: onsetMonths,
+        seizureFrequencyBaseline: _selectedSeizureFrequencyBaseline,
+        comorbidities: _sortedCodes(_selectedComorbidities),
+        therapies: _sortedCodes(_selectedTherapies),
+        devices: _sortedCodes(_selectedDevices),
+        currentMedications: _currentMedicationsPayload(),
+        consentForResearch: _consentForResearch,
+        consentAcceptedAt: DateTime.now(),
+        consentVersion: 'v1.0',
+      );
+      await ref.read(patientControllerProvider.notifier).createPatient(patient);
+      _handleSaveResult(successMessage: 'Paciente guardado.');
+      return;
+    }
+
+    if (currentPatient == null) {
+      return;
+    }
+
+    final updated = currentPatient.copyWith(
+      alias: _aliasController.text,
+      birthYear: int.parse(_birthYearController.text.trim()),
+      sex: _selectedSex,
+      country: _countryController.text,
+      geneSummary: _sortedCodes(_selectedGenes),
+      city: _nullIfEmpty(_cityController.text),
+      referenceHospital: _nullIfEmpty(_referenceHospitalController.text),
+      epilepsyOnsetAgeMonths: onsetMonths,
+      seizureFrequencyBaseline: _selectedSeizureFrequencyBaseline,
+      comorbidities: _sortedCodes(_selectedComorbidities),
+      therapies: _sortedCodes(_selectedTherapies),
+      devices: _sortedCodes(_selectedDevices),
+      currentMedications: _currentMedicationsPayload(),
+      consentForResearch: _consentForResearch,
+      consentAcceptedAt:
+          (_consentForResearch && !currentPatient.consentForResearch)
+              ? DateTime.now()
+              : currentPatient.consentAcceptedAt,
+      updatedAt: DateTime.now(),
+    );
+
+    final shouldContinue = await _confirmStableChangesIfNeeded(
+      oldPatient: currentPatient,
+      updatedPatient: updated,
+    );
+    if (!shouldContinue) {
+      return;
+    }
+
+    await ref.read(patientControllerProvider.notifier).updatePatientWithHistory(
+          oldPatient: currentPatient,
+          updatedPatient: updated,
+          changedBy: userId,
+          reason: 'Actualización perfil',
+        );
+    _handleSaveResult(successMessage: 'Cambios guardados.');
+  }
+
+  Future<bool> _confirmStableChangesIfNeeded({
+    required PatientModel oldPatient,
+    required PatientModel updatedPatient,
+  }) async {
+    final stableChanged = oldPatient.birthYear != updatedPatient.birthYear ||
+        oldPatient.sex != updatedPatient.sex ||
+        _sortedCodes(oldPatient.geneSummary.toSet()).join('|') !=
+            _sortedCodes(updatedPatient.geneSummary.toSet()).join('|');
+
+    if (!stableChanged) {
+      return true;
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar cambio'),
+          content: const Text(
+            'Este dato normalmente no cambia. ¿Seguro que quieres modificarlo?',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Sí, continuar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
+  void _hydrateFormIfNeeded(PatientModel patient) {
+    if (_didHydrateForm) {
+      return;
+    }
+    _didHydrateForm = true;
+
+    _aliasController.text = patient.alias;
+    _birthYearController.text = '${patient.birthYear}';
+    _countryController.text = patient.country;
+    _cityController.text = patient.city ?? '';
+    _referenceHospitalController.text = patient.referenceHospital ?? '';
+    _epilepsyOnsetAgeMonthsController.text =
+        patient.epilepsyOnsetAgeMonths?.toString() ?? '';
+    _selectedSex = patient.sex;
+    _selectedSeizureFrequencyBaseline = patient.seizureFrequencyBaseline;
+    _selectedGenes
+      ..clear()
+      ..addAll(patient.geneSummary);
+    _selectedComorbidities
+      ..clear()
+      ..addAll(patient.comorbidities);
+    _selectedTherapies
+      ..clear()
+      ..addAll(patient.therapies);
+    _selectedDevices
+      ..clear()
+      ..addAll(patient.devices);
+    _consentForResearch = patient.consentForResearch;
+
+    for (final draft in _medicationDrafts) {
+      draft.dispose();
+    }
+    _medicationDrafts
+      ..clear()
+      ..addAll(
+        patient.currentMedications.map(
+          (item) => _MedicationDraft.fromMap(item),
+        ),
+      );
+  }
+
   List<Map<String, dynamic>> _currentMedicationsPayload() {
     return _medicationDrafts
         .map(
@@ -683,60 +784,12 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
     return normalized.isEmpty ? null : normalized;
   }
 
-  Future<void> _savePatient() async {
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
+  List<String> _sortedCodes(Set<String> values) {
+    final list = values.toList(growable: false)..sort();
+    return list;
+  }
 
-    if (!_consentForResearch) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text('Debes aceptar el consentimiento para continuar.'),
-          ),
-        );
-      return;
-    }
-
-    final userId = ref.read(authRepositoryProvider).currentUser?.uid;
-    if (userId == null) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Sesion no valida.')));
-      return;
-    }
-
-    final onsetRaw = _epilepsyOnsetAgeMonthsController.text.trim();
-    final int? onsetMonths = onsetRaw.isEmpty ? null : int.tryParse(onsetRaw);
-
-    final patient = PatientModel.create(
-      ownerUserId: userId,
-      alias: _aliasController.text,
-      birthYear: int.parse(_birthYearController.text.trim()),
-      sex: _selectedSex,
-      country: _countryController.text,
-      geneSummary: _selectedGenes.toList(growable: false),
-      city: _nullIfEmpty(_cityController.text),
-      referenceHospital: _nullIfEmpty(_referenceHospitalController.text),
-      epilepsyOnsetAgeMonths: onsetMonths,
-      seizureFrequencyBaseline: _selectedSeizureFrequencyBaseline,
-      comorbidities: _selectedComorbidities.toList(growable: false),
-      therapies: _selectedTherapies.toList(growable: false),
-      devices: _selectedDevices.toList(growable: false),
-      currentMedications: _currentMedicationsPayload(),
-      consentForResearch: _consentForResearch,
-      consentAcceptedAt: DateTime.now(),
-      consentVersion: 'v1.0',
-    );
-
-    await ref.read(patientControllerProvider.notifier).createPatient(patient);
+  void _handleSaveResult({required String successMessage}) {
     final state = ref.read(patientControllerProvider);
 
     if (!mounted) {
@@ -750,6 +803,9 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
       return;
     }
 
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(successMessage)));
     Navigator.of(context).pop();
   }
 }
@@ -760,6 +816,16 @@ class _MedicationDraft {
         doseController = TextEditingController(),
         scheduleController = TextEditingController(),
         notesController = TextEditingController();
+
+  _MedicationDraft.fromMap(Map<String, dynamic> map)
+      : nameController =
+            TextEditingController(text: (map['name'] as String?) ?? ''),
+        doseController =
+            TextEditingController(text: (map['dose'] as String?) ?? ''),
+        scheduleController =
+            TextEditingController(text: (map['schedule'] as String?) ?? ''),
+        notesController =
+            TextEditingController(text: (map['notes'] as String?) ?? '');
 
   final TextEditingController nameController;
   final TextEditingController doseController;

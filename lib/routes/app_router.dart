@@ -7,8 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/auth_provider.dart';
 import '../features/auth/login_screen.dart';
 import '../features/patients/home_screen.dart';
+import '../features/patients/patient_history_screen.dart';
 import '../features/patients/patient_form_screen.dart';
 import '../features/patients/patient_screen.dart';
+import '../models/seizure_model.dart';
 import '../features/seizures/seizure_form_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((Ref ref) {
@@ -47,14 +49,21 @@ final appRouterProvider = Provider<GoRouter>((Ref ref) {
       GoRoute(
         path: '/patients/new',
         builder: (BuildContext context, GoRouterState state) {
-          return const PatientFormScreen();
+          return const PatientFormScreen.newPatient();
         },
       ),
       GoRoute(
-        path: '/patients/:patientId',
+        path: '/patients/:patientId/edit',
         builder: (BuildContext context, GoRouterState state) {
           final patientId = state.pathParameters['patientId'] ?? '';
-          return PatientScreen(patientId: patientId);
+          return PatientFormScreen.edit(patientId: patientId);
+        },
+      ),
+      GoRoute(
+        path: '/patients/:patientId/history',
+        builder: (BuildContext context, GoRouterState state) {
+          final patientId = state.pathParameters['patientId'] ?? '';
+          return PatientHistoryScreen(patientId: patientId);
         },
       ),
       GoRoute(
@@ -62,6 +71,26 @@ final appRouterProvider = Provider<GoRouter>((Ref ref) {
         builder: (BuildContext context, GoRouterState state) {
           final patientId = state.pathParameters['patientId'] ?? '';
           return SeizureFormScreen(patientId: patientId);
+        },
+      ),
+      GoRoute(
+        path: '/patients/:patientId/seizures/:seizureId/edit',
+        builder: (BuildContext context, GoRouterState state) {
+          final patientId = state.pathParameters['patientId'] ?? '';
+          final initialSeizure = state.extra is SeizureModel
+              ? state.extra as SeizureModel
+              : null;
+          return SeizureFormScreen(
+            patientId: patientId,
+            initialSeizure: initialSeizure,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/patients/:patientId',
+        builder: (BuildContext context, GoRouterState state) {
+          final patientId = state.pathParameters['patientId'] ?? '';
+          return PatientScreen(patientId: patientId);
         },
       ),
     ],

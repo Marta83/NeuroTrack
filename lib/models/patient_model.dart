@@ -52,6 +52,9 @@ class PatientModel {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  List<String> get affectedGenes => geneSummary;
+  bool get consentResearch => consentForResearch;
+
   static const Uuid _uuid = Uuid();
 
   /// Crea un paciente con `patientId` aleatorio UUID v4.
@@ -69,7 +72,8 @@ class PatientModel {
     List<String> comorbidities = const <String>[],
     List<String> therapies = const <String>[],
     List<String> devices = const <String>[],
-    List<Map<String, dynamic>> currentMedications = const <Map<String, dynamic>>[],
+    List<Map<String, dynamic>> currentMedications =
+        const <Map<String, dynamic>>[],
     required bool consentForResearch,
     required DateTime consentAcceptedAt,
     required String consentVersion,
@@ -92,8 +96,10 @@ class PatientModel {
       fieldName: 'referenceHospital',
     );
     final normalizedOnsetMonths =
-        PatientValidators.validateEpilepsyOnsetAgeMonths(epilepsyOnsetAgeMonths);
-    final normalizedFrequency = PatientValidators.validateSeizureFrequencyBaseline(
+        PatientValidators.validateEpilepsyOnsetAgeMonths(
+            epilepsyOnsetAgeMonths);
+    final normalizedFrequency =
+        PatientValidators.validateSeizureFrequencyBaseline(
       seizureFrequencyBaseline,
     );
     final normalizedComorbidities =
@@ -136,21 +142,26 @@ class PatientModel {
     final birthYear = (map['birthYear'] as num?)?.toInt() ?? 0;
     final sex = (map['sex'] as String?) ?? '';
     final country = (map['country'] as String?) ?? '';
-    final geneSummary =
-        List<String>.from(map['geneSummary'] as List<dynamic>? ?? const <String>[]);
+    final geneSummary = List<String>.from(
+      map['affectedGenes'] as List<dynamic>? ??
+          map['geneSummary'] as List<dynamic>? ??
+          const <String>[],
+    );
     final city = map['city'] as String?;
     final referenceHospital = map['referenceHospital'] as String?;
-    final epilepsyOnsetAgeMonths = (map['epilepsyOnsetAgeMonths'] as num?)?.toInt();
+    final epilepsyOnsetAgeMonths =
+        (map['epilepsyOnsetAgeMonths'] as num?)?.toInt();
     final seizureFrequencyBaseline = map['seizureFrequencyBaseline'] as String?;
     final comorbidities = List<String>.from(
       map['comorbidities'] as List<dynamic>? ?? const <String>[],
     );
-    final therapies =
-        List<String>.from(map['therapies'] as List<dynamic>? ?? const <String>[]);
+    final therapies = List<String>.from(
+        map['therapies'] as List<dynamic>? ?? const <String>[]);
     final devices =
         List<String>.from(map['devices'] as List<dynamic>? ?? const <String>[]);
     final currentMedications = List<Map<String, dynamic>>.from(
-      map['currentMedications'] as List<dynamic>? ?? const <Map<String, dynamic>>[],
+      map['currentMedications'] as List<dynamic>? ??
+          const <Map<String, dynamic>>[],
     );
     final consentVersion = (map['consentVersion'] as String?) ?? '';
 
@@ -169,8 +180,10 @@ class PatientModel {
       fieldName: 'referenceHospital',
     );
     final normalizedOnsetMonths =
-        PatientValidators.validateEpilepsyOnsetAgeMonths(epilepsyOnsetAgeMonths);
-    final normalizedFrequency = PatientValidators.validateSeizureFrequencyBaseline(
+        PatientValidators.validateEpilepsyOnsetAgeMonths(
+            epilepsyOnsetAgeMonths);
+    final normalizedFrequency =
+        PatientValidators.validateSeizureFrequencyBaseline(
       seizureFrequencyBaseline,
     );
     final normalizedComorbidities =
@@ -200,7 +213,9 @@ class PatientModel {
       therapies: normalizedTherapies,
       devices: normalizedDevices,
       currentMedications: normalizedMedications,
-      consentForResearch: (map['consentForResearch'] as bool?) ?? false,
+      consentForResearch: (map['consentResearch'] as bool?) ??
+          (map['consentForResearch'] as bool?) ??
+          false,
       consentAcceptedAt: _dateTimeFromAny(map['consentAcceptedAt']),
       consentVersion: normalizedConsentVersion,
       createdAt: _dateTimeFromAny(map['createdAt']),
@@ -217,6 +232,7 @@ class PatientModel {
       'sex': sex,
       'country': country,
       'geneSummary': geneSummary,
+      'affectedGenes': geneSummary,
       'city': city,
       'referenceHospital': referenceHospital,
       'epilepsyOnsetAgeMonths': epilepsyOnsetAgeMonths,
@@ -226,6 +242,7 @@ class PatientModel {
       'devices': devices,
       'currentMedications': currentMedications,
       'consentForResearch': consentForResearch,
+      'consentResearch': consentForResearch,
       'consentAcceptedAt': Timestamp.fromDate(consentAcceptedAt),
       'consentVersion': consentVersion,
       'createdAt': Timestamp.fromDate(createdAt),
