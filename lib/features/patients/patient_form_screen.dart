@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/patient_clinical_catalog.dart';
 import '../../models/patient_model.dart';
@@ -9,14 +10,18 @@ import '../auth/auth_provider.dart';
 import 'patient_provider.dart';
 
 class PatientFormScreen extends ConsumerStatefulWidget {
-  const PatientFormScreen.newPatient({super.key}) : patientId = null;
+  const PatientFormScreen.newPatient({
+    this.firstPatientRequired = false,
+    super.key,
+  }) : patientId = null;
 
   const PatientFormScreen.edit({
     required this.patientId,
     super.key,
-  });
+  }) : firstPatientRequired = false;
 
   final String? patientId;
+  final bool firstPatientRequired;
 
   bool get isEdit => patientId != null;
 
@@ -107,15 +112,18 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
     );
   }
 
-  Scaffold _buildScaffold(
+  Widget _buildScaffold(
     BuildContext context, {
     required String userId,
     PatientModel? currentPatient,
   }) {
     final isLoading = ref.watch(patientControllerProvider).isLoading;
 
-    return Scaffold(
+    return PopScope(
+      canPop: widget.isEdit || !widget.firstPatientRequired,
+      child: Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: widget.isEdit || !widget.firstPatientRequired,
         title: Text(widget.isEdit ? 'Editar paciente' : 'Nuevo paciente'),
       ),
       body: SafeArea(
@@ -125,6 +133,22 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 16),
               children: <Widget>[
+                if (!widget.isEdit && widget.firstPatientRequired) ...<Widget>[
+                  Text(
+                    'Crea la ficha del paciente',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Para empezar, necesitamos crear una ficha. Luego podrás registrar episodios y ver la evolución.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(height: gapSection),
+                ],
                 _buildBasicSection(context),
                 const SizedBox(height: gapSection),
                 _buildGeneticsSection(context),
@@ -150,7 +174,11 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
                         )
                       : const Icon(Icons.save),
                   label: Text(
-                    widget.isEdit ? 'Guardar cambios' : 'Guardar paciente',
+                    widget.isEdit
+                        ? 'Guardar cambios'
+                        : widget.firstPatientRequired
+                            ? 'Crear paciente'
+                            : 'Guardar paciente',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -159,6 +187,7 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -640,7 +669,7 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
         consentVersion: 'v1.0',
       );
       await ref.read(patientControllerProvider.notifier).createPatient(patient);
-      _handleSaveResult(successMessage: 'Paciente guardado.');
+      _handleCreateResult(patient.id);
       return;
     }
 
@@ -807,6 +836,26 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(successMessage)));
     Navigator.of(context).pop();
+  }
+
+  void _handleCreateResult(String patientId) {
+    final state = ref.read(patientControllerProvider);
+
+    if (!mounted) {
+      return;
+    }
+
+    if (state.hasError) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(state.error.toString())));
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Paciente guardado.')));
+    context.go('/patients/$patientId');
   }
 }
 

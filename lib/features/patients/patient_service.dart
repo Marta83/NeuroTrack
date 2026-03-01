@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 
 import '../../models/patient_model.dart';
 import '../../models/patient_history_entry.dart';
+import '../../models/medication_history_entry.dart';
 
 class PatientServiceException implements Exception {
   const PatientServiceException(this.message);
@@ -152,6 +154,57 @@ class PatientService {
     }
   }
 
+  Future<bool> userHasPatients(String ownerUserId) async {
+    try {
+      final snapshot = await _patientsCollection
+          .where('ownerUserId', isEqualTo: ownerUserId)
+          .limit(1)
+          .get();
+      return snapshot.docs.isNotEmpty;
+    } on FirebaseException catch (error) {
+      throw PatientServiceException(
+        error.message ?? 'No se pudo comprobar si existen pacientes.',
+      );
+    } catch (_) {
+      throw const PatientServiceException(
+        'No se pudo comprobar si existen pacientes.',
+      );
+    }
+  }
+
+  Future<String?> getFirstPatientId(String ownerUserId) async {
+    try {
+      try {
+        final ordered = await _patientsCollection
+            .where('ownerUserId', isEqualTo: ownerUserId)
+            .orderBy('createdAt')
+            .limit(1)
+            .get();
+        if (ordered.docs.isNotEmpty) {
+          return ordered.docs.first.id;
+        }
+      } on FirebaseException {
+        // Fallback when order/index is unavailable.
+      }
+
+      final fallback = await _patientsCollection
+          .where('ownerUserId', isEqualTo: ownerUserId)
+          .limit(1)
+          .get();
+      if (fallback.docs.isEmpty) {
+        return null;
+      }
+      return fallback.docs.first.id;
+    } on FirebaseException catch (error) {
+      throw PatientServiceException(
+        error.message ?? 'No se pudo obtener el primer paciente.',
+      );
+    } catch (_) {
+      throw const PatientServiceException(
+          'No se pudo obtener el primer paciente.');
+    }
+  }
+
   Stream<List<PatientHistoryEntry>> streamPatientHistory({
     required String userId,
     required String patientId,
@@ -188,6 +241,144 @@ class PatientService {
       );
     } catch (_) {
       throw const PatientServiceException('No se pudo obtener la evolución.');
+    }
+  }
+
+  Stream<List<MedicationHistoryEntry>> streamMedicationHistory({
+    required String userId,
+    required String patientId,
+  }) async* {
+    try {
+      await _assertPatientOwnership(userId: userId, patientId: patientId);
+
+      final historyCollection =
+          _patientsCollection.doc(patientId).collection('medication_history');
+
+      await for (final snapshot in historyCollection
+          .orderBy('startedAt', descending: true)
+          .snapshots()) {
+        try {
+          final entries = snapshot.docs
+              .map(
+                (doc) => MedicationHistoryEntry.fromMap(
+                  id: doc.id,
+                  map: doc.data(),
+                ),
+              )
+              .toList(growable: false);
+          yield entries;
+        } catch (error, stackTrace) {
+          _debugMedicationLoadError(error, stackTrace);
+          rethrow;
+        }
+      }
+    } on FirebaseException catch (error, stackTrace) {
+      _debugMedicationLoadError(error, stackTrace);
+      throw PatientServiceException(
+        error.message ?? 'No se pudo obtener el historial de medicación.',
+      );
+    } catch (error, stackTrace) {
+      _debugMedicationLoadError(error, stackTrace);
+      throw const PatientServiceException(
+        'No se pudo obtener el historial de medicación.',
+      );
+    }
+  }
+
+  Future<void> addMedicationHistoryEntry({
+    required String userId,
+    required String patientId,
+    required MedicationHistoryEntry entry,
+  }) async {
+    try {
+      await _assertPatientOwnership(userId: userId, patientId: patientId);
+      final collection =
+          _patientsCollection.doc(patientId).collection('medication_history');
+      final doc =
+          entry.id.isEmpty ? collection.doc() : collection.doc(entry.id);
+      await doc.set(entry.copyWith(id: doc.id).toMap());
+    } on FirebaseException catch (error) {
+      throw PatientServiceException(
+        error.message ?? 'No se pudo guardar el cambio de medicación.',
+      );
+    } catch (_) {
+      throw const PatientServiceException(
+        'No se pudo guardar el cambio de medicación.',
+      );
+    }
+  }
+
+  Future<void> updateMedicationHistoryEntry({
+    required String userId,
+    required String patientId,
+    required MedicationHistoryEntry entry,
+  }) async {
+    try {
+      await _assertPatientOwnership(userId: userId, patientId: patientId);
+      if (entry.id.trim().isEmpty) {
+        throw const PatientServiceException('Entrada de medicación inválida.');
+      }
+      await _patientsCollection
+          .doc(patientId)
+          .collection('medication_history')
+          .doc(entry.id)
+          .update(entry.toMap());
+    } on FirebaseException catch (error) {
+      throw PatientServiceException(
+        error.message ?? 'No se pudo actualizar el cambio de medicación.',
+      );
+    } on PatientServiceException {
+      rethrow;
+    } catch (_) {
+      throw const PatientServiceException(
+        'No se pudo actualizar el cambio de medicación.',
+      );
+    }
+  }
+
+  Future<void> finalizeMedicationHistoryEntry({
+    required String userId,
+    required String patientId,
+    required String entryId,
+    required DateTime endedAt,
+  }) async {
+    try {
+      await _assertPatientOwnership(userId: userId, patientId: patientId);
+      await _patientsCollection
+          .doc(patientId)
+          .collection('medication_history')
+          .doc(entryId)
+          .update(<String, dynamic>{
+        'endedAt': Timestamp.fromDate(endedAt),
+      });
+    } on FirebaseException catch (error) {
+      throw PatientServiceException(
+        error.message ?? 'No se pudo finalizar la medicación.',
+      );
+    } catch (_) {
+      throw const PatientServiceException(
+          'No se pudo finalizar la medicación.');
+    }
+  }
+
+  Future<void> deleteMedicationHistoryEntry({
+    required String userId,
+    required String patientId,
+    required String entryId,
+  }) async {
+    try {
+      await _assertPatientOwnership(userId: userId, patientId: patientId);
+      await _patientsCollection
+          .doc(patientId)
+          .collection('medication_history')
+          .doc(entryId)
+          .delete();
+    } on FirebaseException catch (error) {
+      throw PatientServiceException(
+        error.message ?? 'No se pudo eliminar la medicación.',
+      );
+    } catch (_) {
+      throw const PatientServiceException('No se pudo eliminar la medicación.');
     }
   }
 
@@ -236,5 +427,32 @@ class PatientService {
       return value.map(_normalizeValue).toList(growable: false);
     }
     return value;
+  }
+
+  Future<void> _assertPatientOwnership({
+    required String userId,
+    required String patientId,
+  }) async {
+    final patientSnapshot = await _patientsCollection.doc(patientId).get();
+    if (!patientSnapshot.exists || patientSnapshot.data() == null) {
+      throw const PatientServiceException('El paciente no existe.');
+    }
+    final data = patientSnapshot.data()!;
+    if ((data['ownerUserId'] as String?) != userId) {
+      throw const PatientServiceException(
+        'No tienes permisos para este paciente.',
+      );
+    }
+  }
+
+  void _debugMedicationLoadError(Object error, StackTrace stackTrace) {
+    if (!kDebugMode) {
+      return;
+    }
+    debugPrint('Medication load error: $error');
+    if (error is FirebaseException) {
+      debugPrint('code=${error.code} message=${error.message}');
+    }
+    debugPrintStack(stackTrace: stackTrace);
   }
 }

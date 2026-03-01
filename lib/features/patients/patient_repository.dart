@@ -1,5 +1,6 @@
 import '../../models/patient_model.dart';
 import '../../models/patient_history_entry.dart';
+import '../../models/medication_history_entry.dart';
 import 'patient_service.dart';
 
 class PatientRepositoryException implements Exception {
@@ -94,6 +95,123 @@ class PatientRepository {
     } catch (_) {
       throw const PatientRepositoryException(
           'No se pudo obtener la evolución.');
+    }
+  }
+
+  Future<bool> userHasPatients(String ownerUserId) async {
+    try {
+      return await _service.userHasPatients(ownerUserId);
+    } on PatientServiceException catch (error) {
+      throw PatientRepositoryException(error.message);
+    } catch (_) {
+      throw const PatientRepositoryException(
+        'No se pudo comprobar si existen pacientes.',
+      );
+    }
+  }
+
+  Future<String?> getFirstPatientId(String ownerUserId) async {
+    try {
+      return await _service.getFirstPatientId(ownerUserId);
+    } on PatientServiceException catch (error) {
+      throw PatientRepositoryException(error.message);
+    } catch (_) {
+      throw const PatientRepositoryException(
+        'No se pudo obtener el primer paciente.',
+      );
+    }
+  }
+
+  Stream<List<MedicationHistoryEntry>> streamMedicationHistory({
+    required String userId,
+    required String patientId,
+  }) {
+    try {
+      return _service.streamMedicationHistory(userId: userId, patientId: patientId);
+    } on PatientServiceException catch (error) {
+      throw PatientRepositoryException(error.message);
+    } catch (_) {
+      throw const PatientRepositoryException(
+        'No se pudo obtener el historial de medicación.',
+      );
+    }
+  }
+
+  Future<void> addMedicationHistoryEntry({
+    required String userId,
+    required String patientId,
+    required MedicationHistoryEntry entry,
+  }) async {
+    try {
+      await _service.addMedicationHistoryEntry(
+        userId: userId,
+        patientId: patientId,
+        entry: entry,
+      );
+    } on PatientServiceException catch (error) {
+      throw PatientRepositoryException(error.message);
+    } catch (_) {
+      throw const PatientRepositoryException(
+        'No se pudo guardar el cambio de medicación.',
+      );
+    }
+  }
+
+  Future<void> updateMedicationHistoryEntry({
+    required String userId,
+    required String patientId,
+    required MedicationHistoryEntry entry,
+  }) async {
+    try {
+      await _service.updateMedicationHistoryEntry(
+        userId: userId,
+        patientId: patientId,
+        entry: entry,
+      );
+    } on PatientServiceException catch (error) {
+      throw PatientRepositoryException(error.message);
+    } catch (_) {
+      throw const PatientRepositoryException(
+        'No se pudo actualizar el cambio de medicación.',
+      );
+    }
+  }
+
+  Future<void> finalizeMedicationHistoryEntry({
+    required String userId,
+    required String patientId,
+    required String entryId,
+    required DateTime endedAt,
+  }) async {
+    try {
+      await _service.finalizeMedicationHistoryEntry(
+        userId: userId,
+        patientId: patientId,
+        entryId: entryId,
+        endedAt: endedAt,
+      );
+    } on PatientServiceException catch (error) {
+      throw PatientRepositoryException(error.message);
+    } catch (_) {
+      throw const PatientRepositoryException('No se pudo finalizar la medicación.');
+    }
+  }
+
+  Future<void> deleteMedicationHistoryEntry({
+    required String userId,
+    required String patientId,
+    required String entryId,
+  }) async {
+    try {
+      await _service.deleteMedicationHistoryEntry(
+        userId: userId,
+        patientId: patientId,
+        entryId: entryId,
+      );
+    } on PatientServiceException catch (error) {
+      throw PatientRepositoryException(error.message);
+    } catch (_) {
+      throw const PatientRepositoryException('No se pudo eliminar la medicación.');
     }
   }
 }

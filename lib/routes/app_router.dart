@@ -7,8 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/auth_provider.dart';
 import '../features/auth/login_screen.dart';
 import '../features/patients/home_screen.dart';
+import '../features/patients/onboarding_gate_screen.dart';
 import '../features/patients/patient_history_screen.dart';
 import '../features/patients/patient_form_screen.dart';
+import '../features/patients/patient_profile_page.dart';
 import '../features/patients/patient_screen.dart';
 import '../models/seizure_model.dart';
 import '../features/seizures/seizure_form_screen.dart';
@@ -17,18 +19,28 @@ final appRouterProvider = Provider<GoRouter>((Ref ref) {
   final authRepository = ref.watch(authRepositoryProvider);
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/gate',
     refreshListenable: GoRouterRefreshStream(authRepository.authStateChanges),
     redirect: (BuildContext context, GoRouterState state) {
       final bool isAuthenticated = authRepository.currentUser != null;
       final bool isOnLogin = state.matchedLocation == '/login';
+      final bool isOnGate = state.matchedLocation == '/gate';
+      final bool isOnHome = state.matchedLocation == '/home';
 
       if (!isAuthenticated && !isOnLogin) {
         return '/login';
       }
 
       if (isAuthenticated && isOnLogin) {
-        return '/home';
+        return '/gate';
+      }
+
+      if (!isAuthenticated && isOnGate) {
+        return '/login';
+      }
+
+      if (isAuthenticated && isOnHome) {
+        return '/gate';
       }
 
       return null;
@@ -47,9 +59,18 @@ final appRouterProvider = Provider<GoRouter>((Ref ref) {
         },
       ),
       GoRoute(
+        path: '/gate',
+        builder: (BuildContext context, GoRouterState state) {
+          return const OnboardingGateScreen();
+        },
+      ),
+      GoRoute(
         path: '/patients/new',
         builder: (BuildContext context, GoRouterState state) {
-          return const PatientFormScreen.newPatient();
+          final isFirstRequired = state.uri.queryParameters['first'] == 'true';
+          return PatientFormScreen.newPatient(
+            firstPatientRequired: isFirstRequired,
+          );
         },
       ),
       GoRoute(
@@ -67,6 +88,13 @@ final appRouterProvider = Provider<GoRouter>((Ref ref) {
         },
       ),
       GoRoute(
+        path: '/patients/:patientId/profile',
+        builder: (BuildContext context, GoRouterState state) {
+          final patientId = state.pathParameters['patientId'] ?? '';
+          return PatientProfilePage(patientId: patientId);
+        },
+      ),
+      GoRoute(
         path: '/patients/:patientId/seizures/new',
         builder: (BuildContext context, GoRouterState state) {
           final patientId = state.pathParameters['patientId'] ?? '';
@@ -77,9 +105,8 @@ final appRouterProvider = Provider<GoRouter>((Ref ref) {
         path: '/patients/:patientId/seizures/:seizureId/edit',
         builder: (BuildContext context, GoRouterState state) {
           final patientId = state.pathParameters['patientId'] ?? '';
-          final initialSeizure = state.extra is SeizureModel
-              ? state.extra as SeizureModel
-              : null;
+          final initialSeizure =
+              state.extra is SeizureModel ? state.extra as SeizureModel : null;
           return SeizureFormScreen(
             patientId: patientId,
             initialSeizure: initialSeizure,

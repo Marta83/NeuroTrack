@@ -5,12 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../models/patient_clinical_catalog.dart';
+import '../../core/formatters/seizure_labels.dart';
 import '../../models/patient_model.dart';
 import '../../models/rescue_medication.dart';
 import '../../models/seizure_model.dart';
 import '../../ui/soft_ui.dart';
 import '../auth/auth_provider.dart';
+import '../reports/report_provider.dart';
 import '../seizures/seizure_provider.dart';
 import 'patient_provider.dart';
 
@@ -71,6 +72,16 @@ class PatientScreen extends ConsumerWidget {
                 onPressed: () => context.push('/patients/${patient.id}/edit'),
                 icon: const Icon(Icons.edit_outlined),
               ),
+              IconButton(
+                tooltip: 'Exportar informe (PDF)',
+                onPressed: () => _openExportReportSheet(context, ref, patient),
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+              ),
+              IconButton(
+                tooltip: 'Cerrar sesión',
+                onPressed: () => _confirmSignOut(context, ref),
+                icon: const Icon(Icons.logout_rounded),
+              ),
             ],
           ),
           body: SafeArea(
@@ -108,15 +119,16 @@ class PatientScreen extends ConsumerWidget {
                                 ..showSnackBar(
                                   SnackBar(content: Text(error.toString())),
                                 );
+                            }
                           }
-                        }
-                      : null,
+                        : null,
                     onDeleteSeedPressed: kDebugMode
                         ? () async {
                             try {
                               final deleted = await ref
                                   .read(seizureRepositoryProvider)
-                                  .deleteSeededTestSeizuresForPatient(patient.id);
+                                  .deleteSeededTestSeizuresForPatient(
+                                      patient.id);
                               if (!context.mounted) {
                                 return;
                               }
@@ -207,9 +219,9 @@ class PatientScreen extends ConsumerWidget {
                                 onPressed: currentPage > 0
                                     ? () {
                                         ref
-                                            .read(
-                                                patientEpisodesPageProvider(patientId)
-                                                    .notifier)
+                                            .read(patientEpisodesPageProvider(
+                                                    patientId)
+                                                .notifier)
                                             .state = currentPage - 1;
                                       }
                                     : null,
@@ -221,9 +233,9 @@ class PatientScreen extends ConsumerWidget {
                                 onPressed: currentPage < totalPages - 1
                                     ? () {
                                         ref
-                                            .read(
-                                                patientEpisodesPageProvider(patientId)
-                                                    .notifier)
+                                            .read(patientEpisodesPageProvider(
+                                                    patientId)
+                                                .notifier)
                                             .state = currentPage + 1;
                                       }
                                     : null,
@@ -232,17 +244,17 @@ class PatientScreen extends ConsumerWidget {
                             ],
                           ),
                           ...pageItems.map((seizure) {
-                          final rescueMedication = _formatRescueMedication(
-                            seizure.rescueMedicationCode,
-                            seizure.rescueMedicationOther,
-                          );
-                          final medicationText = rescueMedication == null
-                              ? ''
-                              : '\nMedicación de rescate: $rescueMedication';
-                          final durationText = _formatDuration(
-                            durationSeconds: seizure.durationSeconds,
-                            durationUnknown: seizure.durationUnknown,
-                          );
+                            final rescueMedication = _formatRescueMedication(
+                              seizure.rescueMedicationCode,
+                              seizure.rescueMedicationOther,
+                            );
+                            final medicationText = rescueMedication == null
+                                ? ''
+                                : '\nMedicación de rescate: $rescueMedication';
+                            final durationText = _formatDuration(
+                              durationSeconds: seizure.durationSeconds,
+                              durationUnknown: seizure.durationUnknown,
+                            );
 
                             return ListTile(
                               contentPadding: const EdgeInsets.symmetric(
@@ -250,7 +262,7 @@ class PatientScreen extends ConsumerWidget {
                                 vertical: 6,
                               ),
                               title: Text(
-                                  '${seizure.type}  Intensidad ${seizure.intensity}'),
+                                  '${seizureTypeLabel(seizure.type)} · Intensidad ${seizure.intensity}'),
                               subtitle: Text(
                                 'Fecha: ${_formatDateTime(seizure.dateTime)}\n'
                                 'Duración: $durationText$medicationText',
@@ -273,8 +285,8 @@ class PatientScreen extends ConsumerWidget {
                                     icon: const Icon(Icons.delete_outline),
                                     onPressed: isMutationLoading
                                         ? null
-                                        : () =>
-                                            _confirmDelete(context, ref, seizure.id),
+                                        : () => _confirmDelete(
+                                            context, ref, seizure.id),
                                   ),
                                 ],
                               ),
@@ -342,7 +354,7 @@ class PatientScreen extends ConsumerWidget {
         const SizedBox(height: 4),
         TextButton(
           style: TextButton.styleFrom(padding: EdgeInsets.zero),
-          onPressed: () => _showFullProfile(context, patient),
+          onPressed: () => context.push('/patients/${patient.id}/profile'),
           child: const Text('Ver perfil completo'),
         ),
         if (kDebugMode && onSeedPressed != null)
@@ -573,94 +585,6 @@ class PatientScreen extends ConsumerWidget {
     return '${avg.toStringAsFixed(1)} min';
   }
 
-  Future<void> _showFullProfile(BuildContext context, PatientModel patient) {
-    return showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: ListView(
-              shrinkWrap: true,
-              children: <Widget>[
-                Text(
-                  'Perfil del paciente',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                _profileLine(context, 'Alias',
-                    patient.alias.isEmpty ? 'Sin alias' : patient.alias),
-                _profileLine(context, 'País', patient.country),
-                _profileLine(context, 'Sexo', patient.sex),
-                _profileLine(
-                  context,
-                  'Genes',
-                  patient.geneSummary.isEmpty
-                      ? 'Sin datos'
-                      : patient.geneSummary.join(', '),
-                ),
-                _profileLine(
-                  context,
-                  'Hospital',
-                  patient.referenceHospital ?? 'Sin dato',
-                ),
-                _profileLine(
-                  context,
-                  'Medicación actual',
-                  patient.currentMedications.isEmpty
-                      ? 'Sin dato'
-                      : patient.currentMedications
-                          .map((m) => (m['name'] as String?) ?? '')
-                          .where((name) => name.trim().isNotEmpty)
-                          .join(', '),
-                ),
-                _profileLine(
-                  context,
-                  'Terapias',
-                  _labelsFromCodes(patient.therapies,
-                          PatientClinicalCatalog.therapyOptions)
-                      .join(', '),
-                ),
-                _profileLine(
-                  context,
-                  'Dispositivos',
-                  _labelsFromCodes(
-                          patient.devices, PatientClinicalCatalog.deviceOptions)
-                      .join(', '),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _profileLine(BuildContext context, String label, String value) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: RichText(
-        text: TextSpan(
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface,
-              ),
-          children: <TextSpan>[
-            TextSpan(
-              text: '$label: ',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            TextSpan(text: value.isEmpty ? 'Sin dato' : value),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _confirmDelete(
       BuildContext context, WidgetRef ref, String seizureId) async {
     final shouldDelete = await showDialog<bool>(
@@ -697,18 +621,250 @@ class PatientScreen extends ConsumerWidget {
     }
   }
 
-  List<String> _labelsFromCodes(
-    List<String> codes,
-    List<CatalogOption> options,
+  Future<void> _openExportReportSheet(
+    BuildContext context,
+    WidgetRef ref,
+    PatientModel patient,
   ) {
-    return codes.map((code) {
-      for (final option in options) {
-        if (option.code == code) {
-          return option.labelEs;
-        }
+    DateTime startDate = DateTime.now().subtract(const Duration(days: 30));
+    DateTime endDate = DateTime.now();
+    bool includeMedication = true;
+    bool includeSeizures = true;
+    bool includeNotes = false;
+    bool isGenerating = false;
+
+    Future<void> pickDate({
+      required bool isStart,
+      required void Function(void Function()) setModalState,
+    }) async {
+      final initialDate = isStart ? startDate : endDate;
+      final picked = await showDatePicker(
+        context: context,
+        initialDate: initialDate,
+        firstDate: DateTime(2000),
+        lastDate: DateTime.now().add(const Duration(days: 3650)),
+      );
+      if (picked == null) {
+        return;
       }
-      return code;
-    }).toList(growable: false);
+      setModalState(() {
+        if (isStart) {
+          startDate = DateTime(picked.year, picked.month, picked.day);
+          if (startDate.isAfter(endDate)) {
+            endDate = startDate;
+          }
+        } else {
+          endDate = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
+          if (endDate.isBefore(startDate)) {
+            startDate = DateTime(
+              endDate.year,
+              endDate.month,
+              endDate.day,
+            );
+          }
+        }
+      });
+    }
+
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder:
+              (BuildContext context, void Function(void Function()) setState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  8,
+                  16,
+                  16 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: <Widget>[
+                    Text(
+                      'Informe para el médico',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Este informe está pensado para compartir con tu profesional sanitario.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 16),
+                    _reportDateField(
+                      context,
+                      label: 'Desde',
+                      value: _formatDateOnly(startDate),
+                      onTap: () =>
+                          pickDate(isStart: true, setModalState: setState),
+                    ),
+                    const SizedBox(height: 12),
+                    _reportDateField(
+                      context,
+                      label: 'Hasta',
+                      value: _formatDateOnly(endDate),
+                      onTap: () =>
+                          pickDate(isStart: false, setModalState: setState),
+                    ),
+                    const SizedBox(height: 14),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Incluir medicación'),
+                      value: includeMedication,
+                      onChanged: (value) =>
+                          setState(() => includeMedication = value),
+                    ),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Incluir episodios'),
+                      value: includeSeizures,
+                      onChanged: (value) =>
+                          setState(() => includeSeizures = value),
+                    ),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Incluir notas de episodios'),
+                      value: includeNotes,
+                      onChanged: includeSeizures
+                          ? (value) => setState(() => includeNotes = value)
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: isGenerating
+                          ? null
+                          : () async {
+                              if (!includeMedication && !includeSeizures) {
+                                ScaffoldMessenger.of(context)
+                                  ..hideCurrentSnackBar()
+                                  ..showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Selecciona al menos una sección para exportar.',
+                                      ),
+                                    ),
+                                  );
+                                return;
+                              }
+                              setState(() => isGenerating = true);
+                              await ref
+                                  .read(reportControllerProvider.notifier)
+                                  .generateAndShareMedicalReport(
+                                    patientId: patient.id,
+                                    startDate: startDate,
+                                    endDate: endDate,
+                                    includeMedication: includeMedication,
+                                    includeSeizures: includeSeizures,
+                                    includeSeizureNotes: includeNotes,
+                                  );
+                              final reportState =
+                                  ref.read(reportControllerProvider);
+                              if (!context.mounted) {
+                                return;
+                              }
+                              setState(() => isGenerating = false);
+                              if (reportState.hasError) {
+                                ScaffoldMessenger.of(context)
+                                  ..hideCurrentSnackBar()
+                                  ..showSnackBar(
+                                    SnackBar(
+                                      content:
+                                          Text(reportState.error.toString()),
+                                    ),
+                                  );
+                                return;
+                              }
+                              Navigator.of(context).pop();
+                              ScaffoldMessenger.of(context)
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(
+                                  const SnackBar(
+                                    content:
+                                        Text('PDF generado correctamente.'),
+                                  ),
+                                );
+                            },
+                      icon: isGenerating
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.picture_as_pdf_outlined),
+                      label: const Text('Generar PDF'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Cerrar sesión'),
+          content: const Text('¿Quieres cerrar sesión?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Cerrar sesión'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSignOut != true) {
+      return;
+    }
+
+    await ref.read(authControllerProvider.notifier).signOut();
+    final state = ref.read(authControllerProvider);
+    if (state.hasError) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+            const SnackBar(content: Text('No se pudo cerrar sesión')));
+      return;
+    }
+
+    // Limpieza explícita de estado por usuario.
+    ref.invalidate(patientsByOwnerProvider);
+    ref.invalidate(patientByIdProvider);
+    ref.invalidate(patientHistoryProvider);
+    ref.invalidate(seizuresByPatientProvider);
+    ref.invalidate(seizuresAnalyticsByPatientProvider);
+    ref.invalidate(seizuresByPatientMonthProvider);
+    ref.invalidate(patientRangeDaysProvider);
+    ref.invalidate(patientEpisodesPageProvider);
+    ref.invalidate(reportControllerProvider);
+
+    if (!context.mounted) {
+      return;
+    }
+    context.go('/login');
   }
 
   String? _formatRescueMedication(String? code, String? other) {
@@ -746,6 +902,52 @@ class PatientScreen extends ConsumerWidget {
         '${value.year} '
         '${value.hour.toString().padLeft(2, '0')}:'
         '${value.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDateOnly(DateTime value) {
+    return '${value.day.toString().padLeft(2, '0')}/'
+        '${value.month.toString().padLeft(2, '0')}/'
+        '${value.year}';
+  }
+
+  Widget _reportDateField(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(value),
+                  ],
+                ),
+              ),
+              const Icon(Icons.calendar_today_outlined, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
